@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Track your feelings day to day and get AI-powered therapeutic guidance. Your personal mood journal with intelligent insights.">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Mood Journal">
+    
+    <title>Mood Journal - Track Your Feelings</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-96x96.png">
+    
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Login/Signup Page -->
+    <div id="authPage" class="auth-page">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>🌟 Mood Journal</h1>
+                <p class="auth-subtitle">Track your feelings and discover insights</p>
+            </div>
+            
+            <!-- Login Form -->
+            <div class="auth-form active" id="loginForm">
+                <h2>Welcome Back</h2>
+                <p class="auth-description">Sign in to continue your journey</p>
+                <form id="loginFormElement">
+                    <div class="form-group">
+                        <label for="loginEmail">Email</label>
+                        <input type="email" id="loginEmail" required placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" required placeholder="••••••••">
+                    </div>
+                    <div class="forgot-password-link">
+                        <a href="#" id="showForgotPassword">Forgot Password?</a>
+                    </div>
+                    <button type="submit" class="auth-btn-primary">Sign In</button>
+                </form>
+                <div class="auth-footer">
+                    <p>Don't have an account? <a href="#" id="showSignup">Sign up</a></p>
+                </div>
+            </div>
+
+            <!-- Forgot Password Form -->
+            <div class="auth-form" id="forgotPasswordForm">
+                <h2>Reset Password</h2>
+                <p class="auth-description">Enter your email address and we'll send you a password reset link</p>
+                <form id="forgotPasswordFormElement">
+                    <div class="form-group">
+                        <label for="resetEmail">Email</label>
+                        <input type="email" id="resetEmail" required placeholder="your@email.com">
+                    </div>
+                    <button type="submit" class="auth-btn-primary">Send Reset Link</button>
+                </form>
+                <div class="auth-footer">
+                    <p>Remember your password? <a href="#" id="backToLogin">Back to Login</a></p>
+                </div>
+            </div>
+
+            <!-- Reset Password Form (shown after clicking email link) -->
+            <div class="auth-form" id="resetPasswordForm" style="display: none;">
+                <h2>Set New Password</h2>
+                <p class="auth-description">Enter your new password</p>
+                <form id="resetPasswordFormElement">
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required placeholder="••••••••" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" required placeholder="••••••••" minlength="6">
+                    </div>
+                    <button type="submit" class="auth-btn-primary">Reset Password</button>
+                </form>
+            </div>
+
+            <!-- Signup Form -->
+            <div class="auth-form" id="signupForm">
+                <h2>Create Account</h2>
+                <p class="auth-description">Start tracking your mood and get AI insights</p>
+                <form id="signupFormElement">
+                    <div class="form-group">
+                        <label for="signupName">Name</label>
+                        <input type="text" id="signupName" required placeholder="Your name">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupEmail">Email</label>
+                        <input type="email" id="signupEmail" required placeholder="your@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword">Password</label>
+                        <input type="password" id="signupPassword" required placeholder="••••••••" minlength="6">
+                    </div>
+                    <div class="subscription-info">
+                        <div class="subscription-card">
+                            <div class="subscription-header">
+                                <h3>Premium Subscription</h3>
+                                <div class="price-info">
+                                    <div class="trial-badge">🎁 7-Day Free Trial</div>
+                                    <div class="price">$5<span>/month</span></div>
+                                </div>
+                            </div>
+                            <ul class="subscription-features">
+                                <li>✅ Unlimited journal entries</li>
+                                <li>✅ AI therapeutic guidance</li>
+                                <li>✅ Voice chat therapy</li>
+                                <li>✅ Weekly & monthly reviews</li>
+                                <li>✅ Thought journal insights</li>
+                                <li>✅ Cloud backup</li>
+                            </ul>
+                            <div class="subscription-toggle">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="enableSubscription" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span>Start 7-day free trial (then $5/month)</span>
+                            </div>
+                            
+                            <!-- Payment Method (shown when subscription enabled) -->
+                            <div class="payment-section" id="paymentSection" style="display: none;">
+                                <h4>Payment Method</h4>
+                                <div class="form-group">
+                                    <label for="cardNumber">Card Number</label>
+                                    <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456" maxlength="19" pattern="[0-9\s]+">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="cardExpiry">Expiry Date</label>
+                                        <input type="text" id="cardExpiry" placeholder="MM/YY" maxlength="5" pattern="[0-9/]+">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="cardCVV">CVV</label>
+                                        <input type="text" id="cardCVV" placeholder="123" maxlength="4" pattern="[0-9]+">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="cardName">Cardholder Name</label>
+                                    <input type="text" id="cardName" placeholder="John Doe">
+                                </div>
+                                <div class="payment-info">
+                                    <p>🔒 Your payment information is secure. You won't be charged until after your 7-day free trial ends.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="auth-btn-primary">Create Account</button>
+                </form>
+                <div class="auth-footer">
+                    <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App (hidden until logged in) -->
+    <div id="appContainer" class="container" style="display: none;">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>🌟 Mood Journal</h1>
+                    <p class="subtitle">Track your feelings and discover insights</p>
+                </div>
+                <div class="user-menu">
+                    <div class="user-info" id="userInfo">
+                        <span id="userName"></span>
+                        <span class="subscription-badge" id="subscriptionBadge">Premium</span>
+                    </div>
+                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <button class="nav-btn active" data-page="entry">📝 Journal</button>
+            <button class="nav-btn" data-page="thoughts">💭 Thoughts</button>
+            <button class="nav-btn" data-page="calendar">📅 Calendar</button>
+            <button class="nav-btn" data-page="reviews">📊 Reviews</button>
+            <button class="nav-btn" data-page="voice">🎤 Voice Chat</button>
+        </nav>
+
+        <main>
+            <!-- Journal Entry Page -->
+            <div class="page active" id="page-entry">
+            <!-- Today's Entry Section -->
+            <section class="entry-section" id="entrySection">
+                <div class="date-display">
+                    <h2 id="currentDate"></h2>
+                </div>
+
+                <!-- Mood Selection -->
+                <div class="mood-selector">
+                    <h3>How are you feeling today?</h3>
+                    <div class="mood-grid">
+                        <button class="mood-btn" data-mood="excited" data-value="7">
+                            <span class="emoji">😄</span>
+                            <span class="label">Excited</span>
+                        </button>
+                        <button class="mood-btn" data-mood="happy" data-value="6">
+                            <span class="emoji">😊</span>
+                            <span class="label">Happy</span>
+                        </button>
+                        <button class="mood-btn" data-mood="grateful" data-value="5">
+                            <span class="emoji">🙏</span>
+                            <span class="label">Grateful</span>
+                        </button>
+                        <button class="mood-btn" data-mood="calm" data-value="4">
+                            <span class="emoji">😌</span>
+                            <span class="label">Calm</span>
+                        </button>
+                        <button class="mood-btn" data-mood="content" data-value="3">
+                            <span class="emoji">🙂</span>
+                            <span class="label">Content</span>
+                        </button>
+                        <button class="mood-btn" data-mood="neutral" data-value="2">
+                            <span class="emoji">😐</span>
+                            <span class="label">Neutral</span>
+                        </button>
+                        <button class="mood-btn" data-mood="tired" data-value="1">
+                            <span class="emoji">😴</span>
+                            <span class="label">Tired</span>
+                        </button>
+                        <button class="mood-btn" data-mood="stressed" data-value="0">
+                            <span class="emoji">😓</span>
+                            <span class="label">Stressed</span>
+                        </button>
+                        <button class="mood-btn" data-mood="frustrated" data-value="-1">
+                            <span class="emoji">😤</span>
+                            <span class="label">Frustrated</span>
+                        </button>
+                        <button class="mood-btn" data-mood="sad" data-value="-2">
+                            <span class="emoji">😢</span>
+                            <span class="label">Sad</span>
+                        </button>
+                        <button class="mood-btn" data-mood="unhappy" data-value="-3">
+                            <span class="emoji">😞</span>
+                            <span class="label">Unhappy</span>
+                        </button>
+                        <button class="mood-btn" data-mood="anxious" data-value="-4">
+                            <span class="emoji">😰</span>
+                            <span class="label">Anxious</span>
+                        </button>
+                        <button class="mood-btn" data-mood="depressed" data-value="-5">
+                            <span class="emoji">😔</span>
+                            <span class="label">Depressed</span>
+                        </button>
+                        <button class="mood-btn" data-mood="lost" data-value="-6">
+                            <span class="emoji">😕</span>
+                            <span class="label">Lost</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Journal Text Area -->
+                <div class="journal-input">
+                    <h3>What's on your mind?</h3>
+                    <textarea 
+                        id="journalText" 
+                        placeholder="Write about your day, thoughts, or anything you'd like to remember..."
+                        rows="6"
+                    ></textarea>
+                </div>
+
+                <!-- Save Button -->
+                <button class="save-btn" id="saveBtn">Save Entry</button>
+
+                <!-- Selected Moods Display -->
+                <div class="selected-mood" id="selectedMood" style="display: none;">
+                    <span class="selected-label">Selected:</span>
+                    <div class="selected-moods-list" id="selectedMoodsContainer"></div>
+                </div>
+            </section>
+
+            <!-- Q&A Section -->
+            <section class="qa-section" id="qaSection" style="display: none;">
+                <h3>💭 Let's Explore Together</h3>
+                <p class="qa-intro">To better understand your situation, I'd like to ask a few questions:</p>
+                <div class="qa-container" id="qaContainer">
+                    <div class="loading">Generating questions based on your entry...</div>
+                </div>
+                <button class="submit-answers-btn" id="submitAnswers" style="display: none;">Continue with Guidance</button>
+            </section>
+
+            <!-- AI Suggestions Section -->
+            <section class="suggestions-section" id="suggestionsSection" style="display: none;">
+                <h3>💬 Therapeutic Guidance</h3>
+                <div class="suggestions-content" id="suggestionsContent">
+                    <div class="loading">Analyzing your entry and preparing personalized guidance...</div>
+                </div>
+                <button class="refresh-btn" id="refreshSuggestions">Get New Insights</button>
+            </section>
+            </div>
+
+            <!-- Calendar/History Page -->
+            <div class="page" id="page-calendar">
+            <section class="calendar-section">
+                <div class="section-header">
+                    <h3>📅 Your Journal History</h3>
+                    <button class="toggle-calendar" id="toggleCalendar">Show Calendar</button>
+                </div>
+                <div class="calendar-container" id="calendarContainer" style="display: none;">
+                    <div class="calendar-grid" id="calendarGrid"></div>
+                </div>
+            </section>
+
+            <!-- Past Entries View -->
+            <section class="entries-section">
+                <h3>📝 Recent Entries</h3>
+                <div class="entries-list" id="entriesList"></div>
+            </section>
+            </div>
+
+            <!-- Progress Reviews Page -->
+            <div class="page" id="page-reviews">
+            <!-- Progress Reviews Section -->
+            <section class="reviews-section">
+                <h3>📊 Progress Reviews</h3>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="weekly">Weekly Review</button>
+                    <button class="tab-btn" data-tab="monthly">Monthly Review</button>
+                </div>
+                
+                <!-- Weekly Review Tab -->
+                <div class="tab-content active" id="weeklyReview">
+                    <div class="review-header">
+                        <h4>This Week's Progress</h4>
+                        <button class="generate-btn" id="generateWeeklyReview">Generate Weekly Report</button>
+                    </div>
+                    <div class="review-content" id="weeklyReviewContent">
+                        <div class="review-placeholder">
+                            <p>Click "Generate Weekly Report" to get an AI-powered analysis of your mood patterns and progress this week.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Review Tab -->
+                <div class="tab-content" id="monthlyReview">
+                    <div class="review-header">
+                        <h4>This Month's Progress</h4>
+                        <button class="generate-btn" id="generateMonthlyReview">Generate Monthly Report</button>
+                    </div>
+                    <div class="review-content" id="monthlyReviewContent">
+                        <div class="review-placeholder">
+                            <p>Click "Generate Monthly Report" to get an AI-powered analysis of your mood patterns and progress this month.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            </div>
+
+            <!-- Voice Chat Page -->
+            <div class="page" id="page-voice">
+            <!-- Voice Chat Section -->
+            <section class="voice-chat-section">
+                <div class="section-header">
+                    <h3>🎤 Voice Chat</h3>
+                    <p class="voice-subtitle">Talk about how you're feeling - we'll have a conversation</p>
+                </div>
+                
+                <div class="voice-chat-container">
+                    <div class="voice-status" id="voiceStatus">
+                        <p>Click the microphone to start talking</p>
+                    </div>
+                    
+                    <div class="voice-controls">
+                        <button class="voice-btn" id="startVoiceChat">
+                            <span class="mic-icon">🎤</span>
+                            <span>Start Voice Chat</span>
+                        </button>
+                        <button class="voice-btn recording" id="stopVoiceChat" style="display: none;">
+                            <span class="mic-icon">⏹️</span>
+                            <span>Stop Recording</span>
+                        </button>
+                    </div>
+                    
+                    <div class="conversation-log" id="conversationLog" style="display: none;">
+                        <h4>Conversation:</h4>
+                        <div class="conversation-messages" id="conversationMessages"></div>
+                    </div>
+                    
+                    <div class="voice-actions" id="voiceActions" style="display: none;">
+                        <button class="action-btn save-conversation" id="saveConversation">Save to Journal</button>
+                        <button class="action-btn cancel-conversation" id="cancelConversation">Cancel</button>
+                    </div>
+                </div>
+            </section>
+            </div>
+
+            <!-- Thought Journal Page -->
+            <div class="page" id="page-thoughts">
+            <section class="thought-journal-section">
+                <h3>💭 Thought Journal</h3>
+                <p class="thought-subtitle">Capture your thoughts and get AI insights that help you explore and expand on them</p>
+                
+                <div class="thought-input-area">
+                    <h4>What's on your mind?</h4>
+                    <textarea 
+                        id="thoughtInput" 
+                        placeholder="Write down any thought, worry, idea, or question. The AI will help you explore it deeper..."
+                        rows="8"
+                    ></textarea>
+                    <div class="thought-actions">
+                        <button class="save-thought-btn" id="saveThoughtBtn">Save Thought</button>
+                        <button class="get-insights-btn" id="getThoughtInsightsBtn">Get AI Insights</button>
+                    </div>
+                </div>
+
+                <div class="thought-history" id="thoughtHistory" style="display: none;">
+                    <h4>Your Thoughts</h4>
+                    <div class="thoughts-list" id="thoughtsList"></div>
+                </div>
+
+                <div class="ai-insights-area" id="aiInsightsArea" style="display: none;">
+                    <h4>🤖 AI Insights</h4>
+                    <div class="insights-content" id="insightsContent">
+                        <div class="loading">Analyzing your thoughts...</div>
+                    </div>
+                </div>
+            </section>
+            </div>
+
+            <!-- Admin Portal Page -->
+            <div class="page" id="page-admin">
+            <section class="admin-section">
+                <div class="admin-header">
+                    <h3>⚙️ Admin Portal</h3>
+                    <p class="admin-subtitle">Manage users, subscriptions, and app settings</p>
+                </div>
+
+                <!-- Admin Stats -->
+                <div class="admin-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalUsers">0</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="activeSubscriptions">0</div>
+                        <div class="stat-label">Active Subscriptions</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="trialUsers">0</div>
+                        <div class="stat-label">Trial Users</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalEntries">0</div>
+                        <div class="stat-label">Total Entries</div>
+                    </div>
+                </div>
+
+                <!-- User Management -->
+                <div class="admin-section-card">
+                    <div class="section-card-header">
+                        <h4>👥 User Management</h4>
+                        <button class="refresh-btn" id="refreshUsers">Refresh</button>
+                    </div>
+                    <div class="user-search">
+                        <input type="text" id="userSearch" placeholder="Search users by email or name...">
+                    </div>
+                    <div class="users-table-container">
+                        <table class="users-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Status</th>
+                                    <th>Subscription</th>
+                                    <th>Joined</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr>
+                                    <td colspan="6" class="loading-cell">Loading users...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Email Logs (Simulated) -->
+                <div class="admin-section-card">
+                    <div class="section-card-header">
+                        <h4>📧 Email Logs</h4>
+                        <button class="refresh-btn" id="refreshEmails">Refresh</button>
+                    </div>
+                    <div class="email-logs-container">
+                        <div class="email-logs" id="emailLogs">
+                            <div class="loading">Loading email logs...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Settings -->
+                <div class="admin-section-card">
+                    <div class="section-card-header">
+                        <h4>⚙️ System Settings</h4>
+                    </div>
+                    <div class="settings-list">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h5>Email Service</h5>
+                                <p>Configure email sending service</p>
+                            </div>
+                            <div class="setting-value">Simulated (Development Mode)</div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h5>Subscription Price</h5>
+                                <p>Monthly subscription fee</p>
+                            </div>
+                            <div class="setting-value">$5.00/month</div>
+                        </div>
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h5>Trial Period</h5>
+                                <p>Free trial duration</p>
+                            </div>
+                            <div class="setting-value">7 days</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            </div>
+        </main>
+
+        <!-- API Key Modal -->
+        <div class="modal" id="apiKeyModal">
+            <div class="modal-content">
+                <h3>Therapeutic Guidance Setup</h3>
+                <p>To receive personalized therapeutic insights and evidence-based guidance, please enter your OpenAI API key. Your key is stored locally and never shared.</p>
+                <input type="password" id="apiKeyInput" placeholder="sk-..." />
+                <div class="modal-buttons">
+                    <button class="btn-primary" id="saveApiKey">Save Key</button>
+                    <button class="btn-secondary" id="skipApiKey">Skip for Now</button>
+                </div>
+                <p class="help-text">You can add this later. Get your key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then((registration) => {
+                        console.log('Service Worker registered successfully:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+        
+        // Handle PWA install prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button if needed
+            showInstallButton();
+        });
+        
+        function showInstallButton() {
+            // You can add an install button to your UI here
+            console.log('App can be installed');
+        }
+        
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            }
+        }
+        
+        // Make installApp available globally
+        window.installApp = installApp;
+    </script>
+</body>
+</html>
+
