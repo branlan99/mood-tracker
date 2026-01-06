@@ -51,7 +51,6 @@ Works on all modern browsers that support:
 - Journal entries are only sent to OpenAI API when generating suggestions (if enabled)
 - No data is collected or transmitted to third parties
 
-## License
 
-Free to use and modify for personal use.
+
 
