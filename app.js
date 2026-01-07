@@ -471,6 +471,8 @@ class MoodJournal {
         this.renderCurrentDate();
         this.setupEventListeners();
         this.setupRouting();
+        this.setupSidebar();
+        this.initVersionTracking();
         this.renderEntries();
         this.renderThoughts(); // Initialize thought journal
         this.checkApiKey();
@@ -480,6 +482,136 @@ class MoodJournal {
         if (this.currentUser && this.currentUser.email === 'branlan99@gmail.com') {
             this.setupAdminPortal();
         }
+    }
+
+    setupSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+        const appWrapper = document.getElementById('appContainer');
+
+        if (!sidebar) return;
+
+        // Check if sidebar state is saved in localStorage (desktop only)
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed && window.innerWidth > 768) {
+            sidebar.classList.add('collapsed');
+            if (appWrapper) {
+                appWrapper.classList.add('sidebar-collapsed');
+            }
+        }
+
+        // Desktop sidebar toggle
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                if (window.innerWidth > 768) {
+                    sidebar.classList.toggle('collapsed');
+                    if (appWrapper) {
+                        appWrapper.classList.toggle('sidebar-collapsed');
+                    }
+                    // Save state
+                    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+                }
+            });
+        }
+
+        // Create mobile overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        overlay.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        `;
+        document.body.appendChild(overlay);
+
+        // Mobile menu toggle
+        if (mobileMenuToggle) {
+            mobileMenuToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('mobile-open');
+                overlay.style.display = sidebar.classList.contains('mobile-open') ? 'block' : 'none';
+            });
+        }
+
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('mobile-open');
+            overlay.style.display = 'none';
+        });
+
+        // Close sidebar when clicking nav buttons on mobile
+        document.querySelectorAll('.nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('mobile-open');
+                    overlay.style.display = 'none';
+                }
+            });
+        });
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('mobile-open');
+                overlay.style.display = 'none';
+            }
+        });
+    }
+
+    initVersionTracking() {
+        // Version configuration
+        const VERSION_CONFIG = {
+            version: '1.0.0',
+            buildDate: new Date().toISOString(),
+            lastUpdated: new Date().toISOString()
+        };
+
+        // Get or create version info
+        let versionInfo = localStorage.getItem('appVersionInfo');
+        if (!versionInfo) {
+            // First time - create version info
+            versionInfo = JSON.stringify(VERSION_CONFIG);
+            localStorage.setItem('appVersionInfo', versionInfo);
+        } else {
+            // Check if version has changed (update detection)
+            const stored = JSON.parse(versionInfo);
+            if (stored.version !== VERSION_CONFIG.version) {
+                // Version changed - update timestamp
+                VERSION_CONFIG.lastUpdated = new Date().toISOString();
+                localStorage.setItem('appVersionInfo', JSON.stringify(VERSION_CONFIG));
+                versionInfo = JSON.stringify(VERSION_CONFIG);
+            }
+        }
+
+        const versionData = JSON.parse(versionInfo);
+        
+        // Update version display
+        const versionEl = document.getElementById('appVersion');
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        
+        if (versionEl) {
+            versionEl.textContent = `v${versionData.version}`;
+        }
+
+        if (lastUpdatedEl) {
+            const lastUpdated = new Date(versionData.lastUpdated);
+            const formattedDate = lastUpdated.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            lastUpdatedEl.textContent = `Last updated: ${formattedDate}`;
+        }
+
+        // Store current version for future comparisons
+        this.appVersion = versionData.version;
+        this.appLastUpdated = versionData.lastUpdated;
     }
 
     setupAdminPortal() {
@@ -788,6 +920,8 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
             // Calendar is already rendered, just ensure it's visible
         } else if (page === 'entry') {
             // Entry page is default
+        } else if (page === 'settings') {
+            this.loadSettingsPage();
         } else if (page === 'admin' && this.currentUser && this.currentUser.email === 'branlan99@gmail.com') {
             this.loadAdminData();
         }
@@ -2614,6 +2748,378 @@ Write in a warm, curious, and supportive tone. Be specific and reference their a
         });
 
         return `<div class="thought-insights">${html}</div>`;
+    }
+
+    // Settings Page Functions
+    loadSettingsPage() {
+        if (!this.currentUser) return;
+        
+        // Load account information
+        document.getElementById('settingsUserName').textContent = this.currentUser.name;
+        document.getElementById('settingsUserEmail').textContent = this.currentUser.email;
+        
+        const memberSince = new Date(this.currentUser.createdAt);
+        document.getElementById('settingsMemberSince').textContent = memberSince.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        // Load subscription information
+        this.loadSubscriptionSettings();
+        
+        // Load API key (masked)
+        const apiKey = localStorage.getItem('openai_api_key') || '';
+        const apiKeyInput = document.getElementById('settingsApiKey');
+        if (apiKey) {
+            const maskedKey = `${apiKey.substring(0, 7)}${'•'.repeat(Math.max(0, apiKey.length - 7))}`;
+            apiKeyInput.value = maskedKey;
+            apiKeyInput.setAttribute('data-actual-key', apiKey);
+        } else {
+            apiKeyInput.value = '';
+            apiKeyInput.setAttribute('data-actual-key', '');
+            apiKeyInput.placeholder = 'sk-...';
+        }
+        
+        // Setup settings event listeners
+        this.setupSettingsListeners();
+    }
+
+    loadSubscriptionSettings() {
+        const subscription = this.currentUser.subscription;
+        const statusEl = document.getElementById('settingsSubscriptionStatus');
+        const trialInfoRow = document.getElementById('trialInfoRow');
+        const billingInfoRow = document.getElementById('billingInfoRow');
+        const planInfoRow = document.getElementById('planInfoRow');
+        const paymentMethodRow = document.getElementById('paymentMethodRow');
+        const cancelBtn = document.getElementById('cancelSubscriptionBtn');
+        const reactivateBtn = document.getElementById('reactivateSubscriptionBtn');
+        
+        if (!subscription || !subscription.active) {
+            statusEl.textContent = 'Inactive';
+            statusEl.className = 'info-value status-inactive';
+            trialInfoRow.style.display = 'none';
+            billingInfoRow.style.display = 'none';
+            planInfoRow.style.display = 'none';
+            paymentMethodRow.style.display = 'none';
+            cancelBtn.style.display = 'none';
+            reactivateBtn.style.display = 'none';
+            return;
+        }
+        
+        // Check trial status
+        if (subscription.trial && subscription.trial.active) {
+            const trialStatus = this.checkTrialStatus(this.currentUser);
+            if (trialStatus && !trialStatus.expired) {
+                statusEl.textContent = 'Free Trial';
+                statusEl.className = 'info-value status-trial';
+                trialInfoRow.style.display = 'flex';
+                const trialEnd = new Date(subscription.trial.endDate);
+                document.getElementById('settingsTrialEnds').textContent = trialEnd.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+            } else {
+                statusEl.textContent = 'Active';
+                statusEl.className = 'info-value status-active';
+                trialInfoRow.style.display = 'none';
+            }
+        } else {
+            statusEl.textContent = 'Active';
+            statusEl.className = 'info-value status-active';
+            trialInfoRow.style.display = 'none';
+        }
+        
+        // Show billing info if active subscription
+        if (subscription.nextBillingDate) {
+            billingInfoRow.style.display = 'flex';
+            const nextBilling = new Date(subscription.nextBillingDate);
+            document.getElementById('settingsNextBilling').textContent = nextBilling.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        } else {
+            billingInfoRow.style.display = 'none';
+        }
+        
+        // Show plan info
+        planInfoRow.style.display = 'flex';
+        document.getElementById('settingsPlan').textContent = `${subscription.plan.charAt(0).toUpperCase() + subscription.plan.slice(1)} - $${subscription.price}/${subscription.currency === 'USD' ? 'month' : subscription.currency}`;
+        
+        // Show payment method
+        if (subscription.paymentMethod) {
+            paymentMethodRow.style.display = 'flex';
+            const last4 = subscription.paymentMethod.cardNumber || '****';
+            document.getElementById('settingsPaymentMethod').textContent = `•••• ${last4}`;
+        } else {
+            paymentMethodRow.style.display = 'none';
+        }
+        
+        // Show cancel/reactivate buttons
+        if (subscription.status === 'cancelled') {
+            cancelBtn.style.display = 'none';
+            reactivateBtn.style.display = 'block';
+        } else {
+            cancelBtn.style.display = 'block';
+            reactivateBtn.style.display = 'none';
+        }
+    }
+
+    setupSettingsListeners() {
+        // Change password form
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        if (changePasswordForm) {
+            changePasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleChangePassword();
+            });
+        }
+        
+        // API key toggle
+        const toggleApiKeyBtn = document.getElementById('toggleApiKey');
+        if (toggleApiKeyBtn) {
+            toggleApiKeyBtn.addEventListener('click', () => {
+                this.toggleApiKeyVisibility();
+            });
+        }
+        
+        // Save API key
+        const saveApiKeySettings = document.getElementById('saveApiKeySettings');
+        if (saveApiKeySettings) {
+            saveApiKeySettings.addEventListener('click', () => {
+                this.saveApiKeyFromSettings();
+            });
+        }
+        
+        // Remove API key
+        const removeApiKeySettings = document.getElementById('removeApiKeySettings');
+        if (removeApiKeySettings) {
+            removeApiKeySettings.addEventListener('click', () => {
+                this.removeApiKeyFromSettings();
+            });
+        }
+        
+        // Export data
+        const exportDataBtn = document.getElementById('exportDataBtn');
+        if (exportDataBtn) {
+            exportDataBtn.addEventListener('click', () => {
+                this.exportUserData();
+            });
+        }
+        
+        // Delete account
+        const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+        if (deleteAccountBtn) {
+            deleteAccountBtn.addEventListener('click', () => {
+                this.handleDeleteAccount();
+            });
+        }
+        
+        // Cancel subscription
+        const cancelSubscriptionBtn = document.getElementById('cancelSubscriptionBtn');
+        if (cancelSubscriptionBtn) {
+            cancelSubscriptionBtn.addEventListener('click', () => {
+                this.handleCancelSubscription();
+            });
+        }
+        
+        // Reactivate subscription
+        const reactivateSubscriptionBtn = document.getElementById('reactivateSubscriptionBtn');
+        if (reactivateSubscriptionBtn) {
+            reactivateSubscriptionBtn.addEventListener('click', () => {
+                this.handleReactivateSubscription();
+            });
+        }
+    }
+
+    handleChangePassword() {
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPasswordSettings').value;
+        const confirmPassword = document.getElementById('confirmPasswordSettings').value;
+        
+        // Validate current password
+        if (this.currentUser.password !== currentPassword) {
+            alert('Current password is incorrect.');
+            return;
+        }
+        
+        // Validate new password
+        if (newPassword.length < 6) {
+            alert('New password must be at least 6 characters.');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            alert('New passwords do not match.');
+            return;
+        }
+        
+        if (newPassword === currentPassword) {
+            alert('New password must be different from current password.');
+            return;
+        }
+        
+        // Update password
+        this.currentUser.password = newPassword;
+        this.saveUsers();
+        localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+        
+        // Clear form
+        document.getElementById('changePasswordForm').reset();
+        
+        this.showSuccessMessage('Password updated successfully!');
+    }
+
+    toggleApiKeyVisibility() {
+        const apiKeyInput = document.getElementById('settingsApiKey');
+        const toggleBtn = document.getElementById('toggleApiKey');
+        const actualKey = apiKeyInput.getAttribute('data-actual-key') || '';
+        
+        if (!actualKey) {
+            // No key to toggle
+            return;
+        }
+        
+        if (apiKeyInput.type === 'password') {
+            apiKeyInput.type = 'text';
+            toggleBtn.textContent = '🙈';
+            apiKeyInput.value = actualKey;
+        } else {
+            apiKeyInput.type = 'password';
+            toggleBtn.textContent = '👁️';
+            const maskedKey = `${actualKey.substring(0, 7)}${'•'.repeat(Math.max(0, actualKey.length - 7))}`;
+            apiKeyInput.value = maskedKey;
+        }
+    }
+
+    saveApiKeyFromSettings() {
+        const apiKeyInput = document.getElementById('settingsApiKey');
+        let apiKey = apiKeyInput.value.trim();
+        
+        // If it's masked, get the actual key
+        if (apiKey.includes('•')) {
+            apiKey = apiKeyInput.getAttribute('data-actual-key') || '';
+        }
+        
+        if (!apiKey || !apiKey.startsWith('sk-')) {
+            alert('Please enter a valid OpenAI API key (starts with sk-).');
+            return;
+        }
+        
+        localStorage.setItem('openai_api_key', apiKey);
+        this.apiKey = apiKey;
+        
+        // Update the input
+        apiKeyInput.setAttribute('data-actual-key', apiKey);
+        const maskedKey = `${apiKey.substring(0, 7)}${'•'.repeat(Math.max(0, apiKey.length - 7))}`;
+        apiKeyInput.value = maskedKey;
+        apiKeyInput.type = 'password';
+        document.getElementById('toggleApiKey').textContent = '👁️';
+        
+        this.showSuccessMessage('API key saved successfully!');
+    }
+
+    removeApiKeyFromSettings() {
+        if (!confirm('Are you sure you want to remove your API key? You won\'t be able to use AI features until you add it again.')) {
+            return;
+        }
+        
+        localStorage.removeItem('openai_api_key');
+        this.apiKey = null;
+        
+        const apiKeyInput = document.getElementById('settingsApiKey');
+        apiKeyInput.value = '';
+        apiKeyInput.setAttribute('data-actual-key', '');
+        
+        this.showSuccessMessage('API key removed.');
+    }
+
+    exportUserData() {
+        const userData = {
+            user: {
+                name: this.currentUser.name,
+                email: this.currentUser.email,
+                createdAt: this.currentUser.createdAt,
+                subscription: this.currentUser.subscription
+            },
+            entries: this.entries,
+            thoughts: this.loadThoughts(),
+            exportDate: new Date().toISOString()
+        };
+        
+        const dataStr = JSON.stringify(userData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `mood-journal-export-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        this.showSuccessMessage('Data exported successfully!');
+    }
+
+    handleDeleteAccount() {
+        const confirmation = prompt('This will permanently delete your account and all your data. This action cannot be undone.\n\nType "DELETE" to confirm:');
+        
+        if (confirmation !== 'DELETE') {
+            return;
+        }
+        
+        if (!confirm('Are you absolutely sure? All your journal entries, thoughts, and account data will be permanently deleted.')) {
+            return;
+        }
+        
+        // Delete user data
+        const users = this.getUsers();
+        delete users[this.currentUser.email];
+        localStorage.setItem('users', JSON.stringify(users));
+        
+        // Delete user-specific entries
+        localStorage.removeItem(`entries_${this.currentUser.email}`);
+        localStorage.removeItem(`thoughts_${this.currentUser.email}`);
+        
+        // Clear current user
+        localStorage.removeItem('currentUser');
+        this.currentUser = null;
+        this.entries = {};
+        
+        // Redirect to auth page
+        alert('Your account has been deleted.');
+        this.showAuth();
+    }
+
+    handleCancelSubscription() {
+        if (!confirm('Are you sure you want to cancel your subscription? You will continue to have access until the end of your current billing period.')) {
+            return;
+        }
+        
+        this.currentUser.subscription.status = 'cancelled';
+        this.saveUsers();
+        localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+        
+        this.loadSubscriptionSettings();
+        this.showSuccessMessage('Subscription cancelled. You will continue to have access until the end of your billing period.');
+    }
+
+    handleReactivateSubscription() {
+        if (!confirm('Reactivate your subscription? You will be charged $5/month starting immediately.')) {
+            return;
+        }
+        
+        this.currentUser.subscription.status = 'active';
+        const now = new Date();
+        this.currentUser.subscription.nextBillingDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days from now
+        
+        this.saveUsers();
+        localStorage.setItem('currentUser', JSON.stringify(this.currentUser));
+        
+        this.loadSubscriptionSettings();
+        this.showSuccessMessage('Subscription reactivated!');
     }
 }
 

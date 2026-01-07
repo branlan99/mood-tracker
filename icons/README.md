@@ -40,3 +40,4 @@ For quick testing, you can:
 
 The app will work without icons, but they improve the installation experience!
 
+

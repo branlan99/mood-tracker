@@ -136,3 +136,4 @@ See the updated `app.js` in the `frontend-updated/` directory for a complete exa
 4. Deploy both frontend and backend
 5. Update frontend API_URL to production backend URL
 
+

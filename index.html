@@ -170,33 +170,67 @@
     </div>
 
     <!-- Main App (hidden until logged in) -->
-    <div id="appContainer" class="container" style="display: none;">
-        <header>
-            <div class="header-content">
-                <div>
-                    <h1>🌟 Mood Journal</h1>
-                    <p class="subtitle">Track your feelings and discover insights</p>
-                </div>
-                <div class="user-menu">
-                    <div class="user-info" id="userInfo">
-                        <span id="userName"></span>
-                        <span class="subscription-badge" id="subscriptionBadge">Premium</span>
-                    </div>
-                    <button class="logout-btn" id="logoutBtn">Logout</button>
-                </div>
+    <div id="appContainer" class="app-wrapper" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>🌟 Mood Journal</h2>
+                <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle sidebar">
+                    <span class="toggle-icon">☰</span>
+                </button>
             </div>
-        </header>
+            <nav class="main-nav">
+                <button class="nav-btn active" data-page="entry">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-label">Journal</span>
+                </button>
+                <button class="nav-btn" data-page="thoughts">
+                    <span class="nav-icon">💭</span>
+                    <span class="nav-label">Thoughts</span>
+                </button>
+                <button class="nav-btn" data-page="calendar">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-label">Calendar</span>
+                </button>
+                <button class="nav-btn" data-page="reviews">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">Reviews</span>
+                </button>
+                <button class="nav-btn" data-page="voice">
+                    <span class="nav-icon">🎤</span>
+                    <span class="nav-label">Voice Chat</span>
+                </button>
+                <button class="nav-btn" data-page="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Settings</span>
+                </button>
+            </nav>
+        </aside>
 
-        <!-- Navigation -->
-        <nav class="main-nav">
-            <button class="nav-btn active" data-page="entry">📝 Journal</button>
-            <button class="nav-btn" data-page="thoughts">💭 Thoughts</button>
-            <button class="nav-btn" data-page="calendar">📅 Calendar</button>
-            <button class="nav-btn" data-page="reviews">📊 Reviews</button>
-            <button class="nav-btn" data-page="voice">🎤 Voice Chat</button>
-        </nav>
+        <!-- Main Content Area -->
+        <div class="main-content-wrapper">
+            <header>
+                <div class="header-content">
+                    <div class="header-left">
+                        <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle menu">
+                            <span>☰</span>
+                        </button>
+                        <div>
+                            <h1>🌟 Mood Journal</h1>
+                            <p class="subtitle">Track your feelings and discover insights</p>
+                        </div>
+                    </div>
+                    <div class="user-menu">
+                        <div class="user-info" id="userInfo">
+                            <span id="userName"></span>
+                            <span class="subscription-badge" id="subscriptionBadge">Premium</span>
+                        </div>
+                        <button class="logout-btn" id="logoutBtn">Logout</button>
+                    </div>
+                </div>
+            </header>
 
-        <main>
+            <main>
             <!-- Journal Entry Page -->
             <div class="page active" id="page-entry">
             <!-- Today's Entry Section -->
@@ -436,6 +470,132 @@
             </section>
             </div>
 
+            <!-- Settings Page -->
+            <div class="page" id="page-settings">
+            <section class="settings-section">
+                <div class="settings-header">
+                    <h3>⚙️ Account Settings</h3>
+                    <p class="settings-subtitle">Manage your account and preferences</p>
+                </div>
+
+                <!-- Account Information -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h4>👤 Account Information</h4>
+                    </div>
+                    <div class="settings-content">
+                        <div class="info-row">
+                            <span class="info-label">Name:</span>
+                            <span class="info-value" id="settingsUserName"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Email:</span>
+                            <span class="info-value" id="settingsUserEmail"></span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Member Since:</span>
+                            <span class="info-value" id="settingsMemberSince"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Change Password -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h4>🔒 Change Password</h4>
+                    </div>
+                    <div class="settings-content">
+                        <form id="changePasswordForm">
+                            <div class="form-group">
+                                <label for="currentPassword">Current Password</label>
+                                <input type="password" id="currentPassword" required placeholder="Enter current password">
+                            </div>
+                            <div class="form-group">
+                                <label for="newPasswordSettings">New Password</label>
+                                <input type="password" id="newPasswordSettings" required placeholder="Enter new password" minlength="6">
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPasswordSettings">Confirm New Password</label>
+                                <input type="password" id="confirmPasswordSettings" required placeholder="Confirm new password" minlength="6">
+                            </div>
+                            <button type="submit" class="settings-btn-primary">Update Password</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Subscription Details -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h4>💳 Subscription</h4>
+                    </div>
+                    <div class="settings-content">
+                        <div class="subscription-info-settings">
+                            <div class="info-row">
+                                <span class="info-label">Status:</span>
+                                <span class="info-value" id="settingsSubscriptionStatus"></span>
+                            </div>
+                            <div class="info-row" id="trialInfoRow" style="display: none;">
+                                <span class="info-label">Trial Ends:</span>
+                                <span class="info-value" id="settingsTrialEnds"></span>
+                            </div>
+                            <div class="info-row" id="billingInfoRow" style="display: none;">
+                                <span class="info-label">Next Billing:</span>
+                                <span class="info-value" id="settingsNextBilling"></span>
+                            </div>
+                            <div class="info-row" id="planInfoRow" style="display: none;">
+                                <span class="info-label">Plan:</span>
+                                <span class="info-value" id="settingsPlan"></span>
+                            </div>
+                            <div class="info-row" id="paymentMethodRow" style="display: none;">
+                                <span class="info-label">Payment Method:</span>
+                                <span class="info-value" id="settingsPaymentMethod"></span>
+                            </div>
+                        </div>
+                        <div class="subscription-actions">
+                            <button class="settings-btn-secondary" id="cancelSubscriptionBtn" style="display: none;">Cancel Subscription</button>
+                            <button class="settings-btn-secondary" id="reactivateSubscriptionBtn" style="display: none;">Reactivate Subscription</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- API Key Management -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h4>🔑 OpenAI API Key</h4>
+                    </div>
+                    <div class="settings-content">
+                        <p class="settings-description">Your API key is stored locally and never shared. It's used to generate AI-powered insights and guidance.</p>
+                        <div class="form-group">
+                            <label for="settingsApiKey">API Key</label>
+                            <div class="api-key-input-group">
+                                <input type="password" id="settingsApiKey" placeholder="sk-..." value="">
+                                <button type="button" class="toggle-api-key-btn" id="toggleApiKey">👁️</button>
+                            </div>
+                        </div>
+                        <div class="settings-actions">
+                            <button class="settings-btn-primary" id="saveApiKeySettings">Save API Key</button>
+                            <button class="settings-btn-secondary" id="removeApiKeySettings">Remove API Key</button>
+                        </div>
+                        <p class="help-text">Get your key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a></p>
+                    </div>
+                </div>
+
+                <!-- Data Management -->
+                <div class="settings-card">
+                    <div class="settings-card-header">
+                        <h4>📊 Data Management</h4>
+                    </div>
+                    <div class="settings-content">
+                        <p class="settings-description">Export your journal data or delete your account permanently.</p>
+                        <div class="settings-actions">
+                            <button class="settings-btn-secondary" id="exportDataBtn">📥 Export My Data</button>
+                            <button class="settings-btn-danger" id="deleteAccountBtn">🗑️ Delete Account</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            </div>
+
             <!-- Admin Portal Page -->
             <div class="page" id="page-admin">
             <section class="admin-section">
@@ -538,7 +698,19 @@
                 </div>
             </section>
             </div>
-        </main>
+            </main>
+
+            <!-- Footer with Version Info -->
+            <footer class="app-footer">
+                <div class="footer-content">
+                    <p class="version-info">
+                        <span id="appVersion">v1.0.0</span>
+                        <span class="version-separator">•</span>
+                        <span id="lastUpdated">Last updated: Loading...</span>
+                    </p>
+                </div>
+            </footer>
+        </div>
 
         <!-- API Key Modal -->
         <div class="modal" id="apiKeyModal">
