@@ -9,6 +9,8 @@ class MoodJournal {
         this.currentQuestions = null;
         this.currentQAResponses = null;
         this.voiceRecognition = null;
+        this.voiceRecognitionInitialized = false;
+        this.voiceRecognitionStopped = false;
         this.voiceSynthesis = null;
         this.isVoiceChatActive = false;
         this.voiceConversation = [];
@@ -2223,22 +2225,16 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
     }
 
     // Voice Chat Functions
-    startVoiceChat() {
+    initializeSpeechRecognition() {
+        // Only initialize once to avoid multiple microphone permission requests
+        if (this.voiceRecognition && this.voiceRecognitionInitialized) {
+            return;
+        }
+
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-            alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
             return;
         }
 
-        if (!this.apiKey) {
-            alert('Please add your OpenAI API key to use voice chat.');
-            return;
-        }
-
-        this.isVoiceChatActive = true;
-        this.voiceConversation = [];
-        this.currentVoiceContext = '';
-
-        // Initialize speech recognition
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         this.voiceRecognition = new SpeechRecognition();
         this.voiceRecognition.continuous = false;
@@ -2260,35 +2256,89 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
             console.error('Speech recognition error:', event.error);
             if (event.error === 'no-speech') {
                 this.updateVoiceStatus('No speech detected. Try again.', 'error');
-                if (this.isVoiceChatActive) {
-                    setTimeout(() => this.voiceRecognition.start(), 500);
-                }
+                // Don't auto-restart on no-speech to avoid repeated permission requests
+                // User can manually continue
+            } else if (event.error === 'not-allowed') {
+                this.updateVoiceStatus('Microphone permission denied. Please allow microphone access.', 'error');
+                this.isVoiceChatActive = false;
+                document.getElementById('startVoiceChat').style.display = 'block';
+                document.getElementById('stopVoiceChat').style.display = 'none';
             } else {
                 this.updateVoiceStatus(`Error: ${event.error}`, 'error');
             }
         };
 
         this.voiceRecognition.onend = () => {
-            if (this.isVoiceChatActive) {
-                // Auto-restart if still active
-                setTimeout(() => {
-                    if (this.isVoiceChatActive) {
-                        this.voiceRecognition.start();
-                    }
-                }, 500);
+            // DO NOT auto-restart here - this was causing multiple permission requests
+            // Recognition naturally ends after each speech input
+            // We manually restart ONLY ONCE after AI response finishes speaking
+            // This prevents the browser from asking for permission multiple times
+            if (!this.isVoiceChatActive || this.voiceRecognitionStopped) {
+                return;
             }
+            // Status will be updated when we manually restart in handleVoiceInput
         };
 
-        // Start recognition
-        this.voiceRecognition.start();
-        document.getElementById('conversationLog').style.display = 'block';
-        this.addConversationMessage('user', 'Starting conversation...');
+        this.voiceRecognitionInitialized = true;
+    }
+
+    startVoiceChat() {
+        if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+            alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+            return;
+        }
+
+        if (!this.apiKey) {
+            alert('Please add your OpenAI API key to use voice chat.');
+            return;
+        }
+
+        this.isVoiceChatActive = true;
+        this.voiceRecognitionStopped = false;
+        this.voiceConversation = [];
+        this.currentVoiceContext = '';
+
+        // Initialize or reuse existing recognition instance
+        this.initializeSpeechRecognition();
+
+        // Start recognition ONLY ONCE - do not stop/restart, just start if not running
+        try {
+            if (this.voiceRecognition) {
+                // Check state and only start if truly idle/ended
+                const state = this.voiceRecognition.state;
+                if (!state || state === 'idle' || state === 'ended') {
+                    // Simple start - no stop() call to avoid multiple permission prompts
+                    this.voiceRecognition.start();
+                    document.getElementById('conversationLog').style.display = 'block';
+                    this.addConversationMessage('user', 'Starting conversation...');
+                } else {
+                    // Already running or starting - just show the conversation
+                    document.getElementById('conversationLog').style.display = 'block';
+                    this.addConversationMessage('user', 'Starting conversation...');
+                }
+            }
+        } catch (error) {
+            console.error('Error starting recognition:', error);
+            if (error.name === 'InvalidStateError') {
+                // Already running - that's fine, just show conversation
+                document.getElementById('conversationLog').style.display = 'block';
+                this.addConversationMessage('user', 'Starting conversation...');
+            } else {
+                this.updateVoiceStatus('Error starting voice recognition. Please try again.', 'error');
+                this.isVoiceChatActive = false;
+            }
+        }
     }
 
     stopVoiceChat() {
         this.isVoiceChatActive = false;
+        this.voiceRecognitionStopped = true; // Mark as intentionally stopped
         if (this.voiceRecognition) {
-            this.voiceRecognition.stop();
+            try {
+                this.voiceRecognition.stop();
+            } catch (error) {
+                // Ignore errors when stopping
+            }
         }
         this.updateVoiceStatus('Recording stopped', 'stopped');
         document.getElementById('startVoiceChat').style.display = 'block';
@@ -2312,11 +2362,29 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
             this.currentVoiceContext += `AI: ${aiResponse}\n`;
 
             // Speak the response
-            this.speakText(aiResponse);
+            await this.speakText(aiResponse);
 
-            // Continue listening if active
-            if (this.isVoiceChatActive) {
-                this.updateVoiceStatus('Listening... Speak your response', 'listening');
+            // Manually restart recognition ONLY ONCE after AI finishes speaking
+            // This prevents multiple permission requests
+            if (this.isVoiceChatActive && !this.voiceRecognitionStopped && this.voiceRecognition) {
+                // Wait for speech to finish, then restart listening ONCE
+                setTimeout(() => {
+                    if (this.isVoiceChatActive && !this.voiceRecognitionStopped && this.voiceRecognition) {
+                        try {
+                            // Only start if not already running - this prevents duplicate starts
+                            if (this.voiceRecognition.state !== 'running' && 
+                                this.voiceRecognition.state !== 'starting') {
+                                this.voiceRecognition.start();
+                                this.updateVoiceStatus('Listening... Speak your response', 'listening');
+                            }
+                        } catch (error) {
+                            // Silently handle if already running - don't spam errors
+                            if (error.name !== 'InvalidStateError') {
+                                console.error('Error restarting recognition:', error);
+                            }
+                        }
+                    }
+                }, 1500); // Wait 1.5 seconds for speech to finish
             }
         } catch (error) {
             console.error('Error getting AI response:', error);
@@ -2373,7 +2441,70 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
         return data.choices[0].message.content;
     }
 
-    speakText(text) {
+    async speakText(text) {
+        // First, try OpenAI TTS API for realistic voices (ChatGPT-like quality)
+        if (this.apiKey) {
+            try {
+                await this.speakWithOpenAITTS(text);
+                return;
+            } catch (error) {
+                console.warn('OpenAI TTS failed, falling back to browser TTS:', error);
+                // Fall through to browser TTS fallback
+            }
+        }
+
+        // Fallback to browser TTS if OpenAI TTS is unavailable
+        this.speakWithBrowserTTS(text);
+    }
+
+    async speakWithOpenAITTS(text) {
+        // OpenAI TTS API offers very realistic, ChatGPT-like voices
+        // Available voices: 
+        //   - 'nova': Warm, expressive female voice (recommended, similar to ChatGPT)
+        //   - 'alloy': Neutral, balanced voice
+        //   - 'echo': Clear, professional male voice
+        //   - 'fable': Expressive, dynamic voice
+        //   - 'onyx': Deep, calm male voice
+        //   - 'shimmer': Soft, gentle female voice
+        
+        const response = await fetch('https://api.openai.com/v1/audio/speech', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKey}`
+            },
+            body: JSON.stringify({
+                model: 'tts-1-hd', // Higher quality, more realistic (tts-1 is faster but lower quality)
+                input: text,
+                voice: 'nova', // Warm, expressive female voice similar to ChatGPT
+                speed: 1.0 // 0.25 to 4.0 - 1.0 is normal speed (can adjust for more natural pacing)
+            })
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`OpenAI TTS API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        }
+
+        // Get audio blob and play it
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        
+        // Clean up URL after playing
+        audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+        };
+
+        audio.onerror = (error) => {
+            console.error('Audio playback error:', error);
+            URL.revokeObjectURL(audioUrl);
+        };
+
+        await audio.play();
+    }
+
+    speakWithBrowserTTS(text) {
         if (!this.voiceSynthesis) {
             console.warn('Speech synthesis not available');
             return;
@@ -2393,12 +2524,6 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
         
         if (voices.length > 0) {
             // Prioritize realistic female voices
-            // Common high-quality female voices across platforms:
-            // - Google: English (US) female voices
-            // - Microsoft: Zira (female), Aria (neural)
-            // - macOS: Samantha, Karen, Victoria
-            // - Chrome: Natural voices often have "Natural" or "Neural" in name
-            
             let preferredVoice = voices.find(voice => {
                 const name = voice.name.toLowerCase();
                 const lang = voice.lang.toLowerCase();
@@ -2445,7 +2570,7 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
             
             if (preferredVoice) {
                 utterance.voice = preferredVoice;
-                console.log('Using voice:', preferredVoice.name);
+                console.log('Using browser voice:', preferredVoice.name);
             }
         }
 
@@ -2468,7 +2593,12 @@ Write in a warm, empathetic tone. Format with clear sections using headers (## f
         `;
         
         messagesContainer.appendChild(messageEl);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // Auto-scroll to bottom when new message is added
+        // Use setTimeout to ensure DOM is updated
+        setTimeout(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }, 100);
     }
 
     updateVoiceStatus(message, status) {
