@@ -201,16 +201,32 @@ class MoodJournal {
         });
 
         // Forgot password form
-        document.getElementById('forgotPasswordFormElement').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleForgotPassword();
-        });
+        const forgotPasswordForm = document.getElementById('forgotPasswordFormElement');
+        if (forgotPasswordForm) {
+            forgotPasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (typeof this.handleForgotPassword === 'function') {
+                    this.handleForgotPassword();
+                } else {
+                    console.error('handleForgotPassword function not found!');
+                    alert('Error: Function not loaded. Please refresh the page.');
+                }
+            });
+        }
 
         // Reset password form
-        document.getElementById('resetPasswordFormElement').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleResetPassword();
-        });
+        const resetPasswordForm = document.getElementById('resetPasswordFormElement');
+        if (resetPasswordForm) {
+            resetPasswordForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (typeof this.handleResetPassword === 'function') {
+                    this.handleResetPassword();
+                } else {
+                    console.error('handleResetPassword function not found!');
+                    alert('Error: Function not loaded. Please refresh the page.');
+                }
+            });
+        }
 
         // Login form
         document.getElementById('loginFormElement').addEventListener('submit', (e) => {
