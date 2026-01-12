@@ -25,6 +25,15 @@
     
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Supabase Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Supabase Configuration (update with your credentials) -->
+    <script src="supabase-config.js"></script>
+    
+    <!-- Supabase Service Layer -->
+    <script src="supabase-service.js"></script>
 </head>
 <body>
     <!-- Login/Signup Page -->
@@ -203,6 +212,10 @@
                 <button class="nav-btn" data-page="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Settings</span>
+                </button>
+                <button class="nav-btn admin-nav-btn" data-page="admin" id="adminNavBtn" style="display: none;">
+                    <span class="nav-icon">👑</span>
+                    <span class="nav-label">Admin</span>
                 </button>
             </nav>
         </aside>

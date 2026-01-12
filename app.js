@@ -16,6 +16,10 @@ class MoodJournal {
         this.voiceConversation = [];
         this.currentVoiceContext = '';
         
+        // Initialize Supabase service
+        this.supabase = window.supabaseService || null;
+        this.useSupabase = this.supabase && this.supabase.isAvailable;
+        
         // Initialize speech synthesis
         if ('speechSynthesis' in window) {
             this.voiceSynthesis = window.speechSynthesis;
@@ -41,26 +45,106 @@ class MoodJournal {
             }
         }
         
+        // Set up auth state listener if using Supabase
+        if (this.useSupabase) {
+            this.supabase.onAuthStateChange((event, session) => {
+                if (event === 'SIGNED_IN' && session) {
+                    this.loadUserFromSupabase();
+                } else if (event === 'SIGNED_OUT') {
+                    this.currentUser = null;
+                    this.showAuth();
+                }
+            });
+        }
+        
         this.checkAuth();
     }
 
     // Authentication Functions
-    checkAuth() {
-        const currentUser = localStorage.getItem('currentUser');
-        if (currentUser) {
-            this.currentUser = JSON.parse(currentUser);
-            // Check trial status on login
-            if (this.currentUser.subscription?.trial?.active) {
-                const trialStatus = this.checkTrialStatus(this.currentUser);
-                if (trialStatus?.expired) {
-                    // Trial expired - in production, charge the user
-                    alert('Your 7-day free trial has ended. Your subscription is now active and you will be charged $5/month.');
+    async checkAuth() {
+        // Check for password reset token first
+        this.checkPasswordResetToken();
+        
+        if (this.useSupabase) {
+            // Check Supabase auth
+            const user = await this.supabase.getCurrentUser();
+            if (user) {
+                await this.loadUserFromSupabase();
+                this.showApp();
+            } else {
+                // Only show auth if not on password reset page
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('type') !== 'recovery') {
+                    this.showAuth();
                 }
             }
-            this.loadUserData();
-            this.showApp();
         } else {
-            this.showAuth();
+            // Fallback to localStorage
+            const currentUser = localStorage.getItem('currentUser');
+            if (currentUser) {
+                this.currentUser = JSON.parse(currentUser);
+                // Check trial status on login
+                if (this.currentUser.subscription?.trial?.active) {
+                    const trialStatus = this.checkTrialStatus(this.currentUser);
+                    if (trialStatus?.expired) {
+                        // Trial expired - in production, charge the user
+                        alert('Your 7-day free trial has ended. Your subscription is now active and you will be charged $5/month.');
+                    }
+                }
+                this.loadUserData();
+                this.showApp();
+            } else {
+                // Only show auth if not on password reset page
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('type') !== 'recovery') {
+                    this.showAuth();
+                }
+            }
+        }
+    }
+
+    async loadUserFromSupabase() {
+        try {
+            const user = await this.supabase.getCurrentUser();
+            if (!user) return;
+
+            this.currentUser = {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                createdAt: user.createdAt
+            };
+
+            // Load subscription
+            const subscription = await this.supabase.getSubscription(user.id);
+            if (subscription) {
+                this.currentUser.subscription = {
+                    active: subscription.status !== 'inactive',
+                    plan: subscription.plan,
+                    price: subscription.price,
+                    currency: subscription.currency,
+                    trial: subscription.trial_start_date ? {
+                        active: subscription.status === 'trial',
+                        startDate: subscription.trial_start_date,
+                        endDate: subscription.trial_end_date
+                    } : null,
+                    nextBillingDate: subscription.next_billing_date,
+                    status: subscription.status
+                };
+
+                // Check trial status
+                if (this.currentUser.subscription?.trial?.active) {
+                    const trialStatus = this.checkTrialStatus(this.currentUser);
+                    if (trialStatus?.expired) {
+                        alert('Your 7-day free trial has ended. Your subscription is now active and you will be charged $5/month.');
+                    }
+                }
+            }
+
+            // Load user data
+            await this.loadUserData();
+        } catch (error) {
+            console.error('Error loading user from Supabase:', error);
         }
     }
 
@@ -74,6 +158,15 @@ class MoodJournal {
         document.getElementById('authPage').style.display = 'none';
         document.getElementById('appContainer').style.display = 'block';
         this.updateUserDisplay();
+        
+        // Show admin nav button if admin user
+        const adminNavBtn = document.getElementById('adminNavBtn');
+        if (adminNavBtn && this.currentUser && this.currentUser.email === 'branlan99@gmail.com') {
+            adminNavBtn.style.display = 'flex';
+        } else if (adminNavBtn) {
+            adminNavBtn.style.display = 'none';
+        }
+        
         this.init();
     }
 
@@ -185,22 +278,29 @@ class MoodJournal {
         }
 
         try {
-            // In a real app, this would call your backend API
-            // For now, we'll simulate with localStorage
-            const user = this.authenticateUser(email, password);
-            
-            if (user) {
-                this.currentUser = user;
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                this.loadUserData();
+            if (this.useSupabase) {
+                // Use Supabase authentication
+                await this.supabase.signIn(email, password);
+                await this.loadUserFromSupabase();
                 this.showApp();
                 this.showSuccessMessage('Welcome back!');
             } else {
-                alert('Invalid email or password');
+                // Fallback to localStorage
+                const user = this.authenticateUser(email, password);
+                
+                if (user) {
+                    this.currentUser = user;
+                    localStorage.setItem('currentUser', JSON.stringify(user));
+                    this.loadUserData();
+                    this.showApp();
+                    this.showSuccessMessage('Welcome back!');
+                } else {
+                    alert('Invalid email or password');
+                }
             }
         } catch (error) {
             console.error('Login error:', error);
-            alert('Login failed. Please try again.');
+            alert(error.message || 'Login failed. Please try again.');
         }
     }
 
@@ -249,33 +349,337 @@ class MoodJournal {
         }
 
         try {
-            // In a real app, this would call your backend API
-            // For now, we'll simulate with localStorage
-            const paymentMethod = hasSubscription ? {
-                cardNumber: document.getElementById('cardNumber').value.replace(/\s/g, '').slice(-4), // Store last 4 digits only
-                cardExpiry: document.getElementById('cardExpiry').value,
-                cardName: document.getElementById('cardName').value.trim(),
-                // In production, never store full card details - use Stripe token
-            } : null;
-
-            const user = this.createUser(name, email, password, hasSubscription, paymentMethod);
-            
-            this.currentUser = user;
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            this.saveUsers();
-            this.loadUserData();
-            this.showApp();
-            
-            if (hasSubscription) {
-                alert('🎉 Welcome! Your 7-day free trial has started. You won\'t be charged until the trial ends.');
-                // In a real app, process payment method with Stripe (tokenize card)
-                this.processSubscription(user);
+            if (this.useSupabase) {
+                // Use Supabase authentication
+                const authData = await this.supabase.signUp(email, password, name);
+                
+                if (authData.user) {
+                    // Wait a moment for profile to be created by trigger
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Load user
+                    await this.loadUserFromSupabase();
+                    
+                    // Create subscription if requested
+                    if (hasSubscription) {
+                        const now = new Date();
+                        const trialEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+                        const nextBillingDate = trialEndDate;
+                        
+                        await this.supabase.createSubscription(this.currentUser.id, {
+                            status: 'trial',
+                            plan: 'premium',
+                            price: 5.00,
+                            currency: 'USD',
+                            trialStartDate: now.toISOString(),
+                            trialEndDate: trialEndDate.toISOString(),
+                            nextBillingDate: nextBillingDate.toISOString()
+                        });
+                        
+                        // Reload user to get subscription
+                        await this.loadUserFromSupabase();
+                        
+                        alert('🎉 Welcome! Your 7-day free trial has started. You won\'t be charged until the trial ends.');
+                    } else {
+                        alert('Account created successfully!');
+                    }
+                    
+                    this.showApp();
+                }
             } else {
-                alert('Account created successfully!');
+                // Fallback to localStorage
+                const paymentMethod = hasSubscription ? {
+                    cardNumber: document.getElementById('cardNumber').value.replace(/\s/g, '').slice(-4),
+                    cardExpiry: document.getElementById('cardExpiry').value,
+                    cardName: document.getElementById('cardName').value.trim(),
+                } : null;
+
+                const user = this.createUser(name, email, password, hasSubscription, paymentMethod);
+                
+                this.currentUser = user;
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                this.saveUsers();
+                this.loadUserData();
+                this.showApp();
+                
+                if (hasSubscription) {
+                    alert('🎉 Welcome! Your 7-day free trial has started. You won\'t be charged until the trial ends.');
+                    this.processSubscription(user);
+                } else {
+                    alert('Account created successfully!');
+                }
             }
         } catch (error) {
             console.error('Signup error:', error);
             alert('Signup failed: ' + (error.message || 'Please try again.'));
+        }
+    }
+
+    async handleForgotPassword() {
+        const email = document.getElementById('resetEmail').value.trim();
+
+        if (!email) {
+            alert('Please enter your email address');
+            return;
+        }
+
+        try {
+            if (this.useSupabase) {
+                // Log email for admin
+                this.logEmail(email, 'Password Reset Request', 'Password reset email requested', 'password_reset_request');
+                
+                // Use Supabase password reset
+                const result = await this.supabase.sendPasswordResetEmail(email);
+                
+                console.log('Password reset email sent:', result);
+                
+                // Show success message
+                document.getElementById('forgotPasswordForm').innerHTML = `
+                    <h2>Check Your Email</h2>
+                    <p class="auth-description">We've sent a password reset link to <strong>${this.escapeHtml(email)}</strong></p>
+                    <p class="auth-description" style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                        Click the link in the email to reset your password. The link will expire in 1 hour.
+                    </p>
+                    <p class="auth-description" style="margin-top: 10px; font-size: 0.85em; color: #999;">
+                        💡 <strong>Didn't receive the email?</strong><br>
+                        • Check your spam/junk folder<br>
+                        • Verify your email address is correct<br>
+                        • Make sure Supabase email service is configured<br>
+                        • Check the browser console for any errors
+                    </p>
+                    <div class="auth-footer" style="margin-top: 30px;">
+                        <button type="button" class="auth-btn-primary" onclick="location.reload()">Back to Login</button>
+                    </div>
+                `;
+            } else {
+                // Fallback to simulated password reset
+                const users = this.getUsers();
+                if (users[email]) {
+                    // Log email (simulated)
+                    this.logEmail(email, 'Password Reset', 'Password reset requested', 'password_reset');
+                }
+                
+                // Always show success message (security best practice - don't reveal if email exists)
+                alert('If an account exists with that email, a password reset link has been sent.');
+                
+                // Reset form and go back to login
+                document.getElementById('forgotPasswordForm').classList.remove('active');
+                document.getElementById('loginForm').classList.add('active');
+                document.getElementById('resetEmail').value = '';
+            }
+        } catch (error) {
+            console.error('❌ FORGOT PASSWORD ERROR:', error);
+            console.error('📋 Error Details:', {
+                message: error.message,
+                status: error.status,
+                code: error.code,
+                name: error.name,
+                fullError: error
+            });
+            
+            // Handle specific Supabase errors
+            let errorMessage = 'Failed to send reset email. ';
+            let showTroubleshooting = true;
+            
+            // Check for specific error codes
+            if (error.code) {
+                console.error('🔍 Error Code:', error.code);
+                
+                if (error.code === 'email_rate_limit_exceeded' || error.message?.includes('rate_limit')) {
+                    errorMessage = 'Too many password reset requests. Please wait 1 hour and try again.';
+                    showTroubleshooting = false;
+                } else if (error.code === 'email_not_confirmed') {
+                    errorMessage = 'Please confirm your email address first. Check your inbox for a confirmation email.';
+                    showTroubleshooting = false;
+                } else if (error.code === 'user_not_found' || error.message?.includes('User not found')) {
+                    // Don't reveal if user exists (security best practice)
+                    errorMessage = 'If an account exists with that email, a reset link has been sent.';
+                    showTroubleshooting = false;
+                } else if (error.message?.includes('redirect')) {
+                    errorMessage = 'Redirect URL not configured. Please add your app URL to Supabase redirect URLs.';
+                } else if (error.message?.includes('email')) {
+                    errorMessage = 'Email service error. Please check Supabase email configuration.';
+                } else {
+                    errorMessage += `Error: ${error.message || error.code || 'Unknown error'}`;
+                }
+            } else if (error.message) {
+                if (error.message.includes('rate_limit')) {
+                    errorMessage = 'Too many requests. Please wait a few minutes and try again.';
+                    showTroubleshooting = false;
+                } else if (error.message.includes('user')) {
+                    // Don't reveal if user exists (security)
+                    errorMessage = 'If an account exists with that email, a reset link has been sent.';
+                    showTroubleshooting = false;
+                } else {
+                    errorMessage += error.message;
+                }
+            }
+            
+            // Show detailed troubleshooting in console
+            if (showTroubleshooting) {
+                console.error('');
+                console.error('🔧 TROUBLESHOOTING STEPS:');
+                console.error('1. Go to Supabase Dashboard → Authentication → URL Configuration');
+                console.error('2. Add your redirect URL to "Redirect URLs":');
+                console.error(`   Current URL: ${window.location.origin}${window.location.pathname}`);
+                console.error('   Add: ' + window.location.origin + window.location.pathname);
+                console.error('3. Go to Authentication → Email Templates');
+                console.error('4. Verify email service is enabled');
+                console.error('5. Check Authentication → Providers → Email is ON');
+                console.error('6. For local dev, make sure you added: http://localhost:5500');
+                console.error('');
+                console.error('📧 Current redirect URL being used:', `${window.location.origin}${window.location.pathname}`);
+            }
+            
+            alert(errorMessage + (showTroubleshooting ? '\n\n⚠️ Check browser console (F12) for detailed troubleshooting steps.' : ''));
+        }
+    }
+
+    async handleResetPassword() {
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+
+        if (!newPassword || !confirmPassword) {
+            alert('Please fill in both password fields');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            alert('Password must be at least 6 characters');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            alert('Passwords do not match');
+            return;
+        }
+
+        try {
+            if (this.useSupabase) {
+                // Verify we have a session (from the reset link)
+                const { data: { session } } = await this.supabase.supabase.auth.getSession();
+                if (!session) {
+                    alert('Invalid or expired reset link. Please request a new password reset.');
+                    location.href = window.location.pathname; // Remove URL params
+                    return;
+                }
+                
+                // Update password using Supabase
+                await this.supabase.updatePassword(newPassword);
+                
+                // Log the email event
+                const user = await this.supabase.getCurrentUser();
+                if (user) {
+                    this.logEmail(user.email, 'Password Reset Completed', 'Your password has been successfully reset.', 'password_reset_complete');
+                }
+                
+                // Show success message
+                document.getElementById('resetPasswordForm').innerHTML = `
+                    <h2>✅ Password Reset Successful</h2>
+                    <p class="auth-description">Your password has been successfully reset. You can now sign in with your new password.</p>
+                    <div class="auth-footer" style="margin-top: 30px;">
+                        <button type="button" class="auth-btn-primary" onclick="location.href='${window.location.pathname}'">Go to Login</button>
+                    </div>
+                `;
+                
+                // Sign out to ensure clean session
+                setTimeout(async () => {
+                    await this.supabase.signOut();
+                    location.href = window.location.pathname; // Remove URL params
+                }, 3000);
+            } else {
+                // Fallback: Update password in localStorage (not secure, for demo only)
+                const resetToken = new URLSearchParams(window.location.search).get('token');
+                if (!resetToken) {
+                    alert('Invalid reset token. Please request a new password reset.');
+                    return;
+                }
+                
+                // In a real implementation, you'd validate the token with the backend
+                alert('Password reset functionality requires backend integration. Using Supabase is recommended.');
+            }
+        } catch (error) {
+            console.error('Reset password error:', error);
+            alert('Failed to reset password: ' + (error.message || 'Please try again.'));
+        }
+    }
+
+    logEmail(to, subject, body, type) {
+        const emailLog = {
+            to,
+            subject,
+            body,
+            type,
+            timestamp: new Date().toISOString()
+        };
+
+        // Store in localStorage for admin portal
+        const emailLogs = JSON.parse(localStorage.getItem('emailLogs') || '[]');
+        emailLogs.push(emailLog);
+        localStorage.setItem('emailLogs', JSON.stringify(emailLogs));
+        
+                // Also log to Supabase if available
+        if (this.useSupabase) {
+            this.supabase.supabase
+                .from('email_logs')
+                .insert({
+                    to_email: to,
+                    subject: subject,
+                    body: body,
+                    type: type
+                })
+                .catch(err => {
+                    // Only log if it's not a permission error (admin-only table)
+                    if (err.code !== '42501') {
+                        console.error('Error logging email:', err);
+                    }
+                });
+        }
+    }
+
+    async checkPasswordResetToken() {
+        // Check if there's a password reset token in the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const accessToken = urlParams.get('access_token');
+        const type = urlParams.get('type');
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const hashToken = hashParams.get('access_token');
+        const hashType = hashParams.get('type');
+        
+        const resetToken = accessToken || hashToken;
+        const resetType = type || hashType;
+        
+        if (resetType === 'recovery' && resetToken && this.useSupabase) {
+            // This is a password reset link from Supabase
+            try {
+                // Set the session with the access token from the URL
+                const { data, error } = await this.supabase.supabase.auth.setSession({
+                    access_token: resetToken,
+                    refresh_token: hashParams.get('refresh_token') || ''
+                });
+                
+                if (error) throw error;
+                
+                // Show the reset password form
+                if (document.getElementById('authPage')) {
+                    document.getElementById('authPage').style.display = 'flex';
+                    document.getElementById('appContainer').style.display = 'none';
+                    document.getElementById('loginForm')?.classList.remove('active');
+                    document.getElementById('forgotPasswordForm')?.classList.remove('active');
+                    const resetForm = document.getElementById('resetPasswordForm');
+                    if (resetForm) {
+                        resetForm.style.display = 'block';
+                    }
+                }
+                
+                // Clean URL (remove tokens for security)
+                window.history.replaceState({}, document.title, window.location.pathname);
+            } catch (err) {
+                console.error('Error setting session:', err);
+                alert('Invalid or expired reset link. Please request a new password reset.');
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
         }
     }
 
@@ -434,9 +838,14 @@ class MoodJournal {
         }
     }
 
-    handleLogout() {
+    async handleLogout() {
         if (confirm('Are you sure you want to logout?')) {
-            localStorage.removeItem('currentUser');
+            if (this.useSupabase) {
+                await this.supabase.signOut();
+            } else {
+                localStorage.removeItem('currentUser');
+            }
+            
             this.currentUser = null;
             this.entries = {};
             this.showAuth();
@@ -657,83 +1066,160 @@ class MoodJournal {
         }
     }
 
-    loadAdminData() {
-        this.loadAdminStats();
-        this.loadAdminUsers();
-        this.loadEmailLogs();
+    async loadAdminData() {
+        await this.loadAdminStats();
+        await this.loadAdminUsers();
+        await this.loadEmailLogs();
     }
 
-    loadAdminStats() {
-        const users = this.getUsers();
-        const userArray = Object.values(users);
-        
-        let activeSubscriptions = 0;
-        let trialUsers = 0;
-        let totalEntries = 0;
+    async loadAdminStats() {
+        try {
+            if (this.useSupabase) {
+                // Get stats from Supabase
+                const { data: users, error: usersError } = await this.supabase.supabase
+                    .from('profiles')
+                    .select('id');
 
-        userArray.forEach(user => {
-            if (user.subscription?.status === 'active') {
-                activeSubscriptions++;
-            }
-            if (user.subscription?.trial?.active) {
-                trialUsers++;
-            }
-            
-            // Count entries for this user
-            const userEntriesKey = `entries_${user.id}`;
-            const entries = localStorage.getItem(userEntriesKey);
-            if (entries) {
-                const entriesObj = JSON.parse(entries);
-                totalEntries += Object.keys(entriesObj).length;
-            }
-        });
+                if (usersError) throw usersError;
 
-        document.getElementById('totalUsers').textContent = userArray.length;
-        document.getElementById('activeSubscriptions').textContent = activeSubscriptions;
-        document.getElementById('trialUsers').textContent = trialUsers;
-        document.getElementById('totalEntries').textContent = totalEntries;
+                const { data: subscriptions, error: subsError } = await this.supabase.supabase
+                    .from('subscriptions')
+                    .select('status, trial_start_date, trial_end_date');
+
+                if (subsError && subsError.code !== 'PGRST116') throw subsError;
+
+                const { count: entriesCount, error: entriesError } = await this.supabase.supabase
+                    .from('entries')
+                    .select('id', { count: 'exact', head: true });
+
+                if (entriesError) throw entriesError;
+
+                const totalUsers = users?.length || 0;
+                const activeSubscriptions = subscriptions?.filter(s => s.status === 'active').length || 0;
+                const trialUsers = subscriptions?.filter(s => {
+                    if (s.status === 'trial' && s.trial_end_date) {
+                        return new Date(s.trial_end_date) > new Date();
+                    }
+                    return false;
+                }).length || 0;
+                const totalEntries = entriesCount || 0;
+
+                document.getElementById('totalUsers').textContent = totalUsers;
+                document.getElementById('activeSubscriptions').textContent = activeSubscriptions;
+                document.getElementById('trialUsers').textContent = trialUsers;
+                document.getElementById('totalEntries').textContent = totalEntries;
+            } else {
+                // Fallback to localStorage
+                const users = this.getUsers();
+                const userArray = Object.values(users);
+                
+                let activeSubscriptions = 0;
+                let trialUsers = 0;
+                let totalEntries = 0;
+
+                userArray.forEach(user => {
+                    if (user.subscription?.status === 'active') {
+                        activeSubscriptions++;
+                    }
+                    if (user.subscription?.trial?.active) {
+                        trialUsers++;
+                    }
+                    
+                    const userEntriesKey = `entries_${user.id}`;
+                    const entries = localStorage.getItem(userEntriesKey);
+                    if (entries) {
+                        const entriesObj = JSON.parse(entries);
+                        totalEntries += Object.keys(entriesObj).length;
+                    }
+                });
+
+                document.getElementById('totalUsers').textContent = userArray.length;
+                document.getElementById('activeSubscriptions').textContent = activeSubscriptions;
+                document.getElementById('trialUsers').textContent = trialUsers;
+                document.getElementById('totalEntries').textContent = totalEntries;
+            }
+        } catch (error) {
+            console.error('Error loading admin stats:', error);
+            document.getElementById('totalUsers').textContent = 'Error';
+            document.getElementById('activeSubscriptions').textContent = 'Error';
+            document.getElementById('trialUsers').textContent = 'Error';
+            document.getElementById('totalEntries').textContent = 'Error';
+        }
     }
 
-    loadAdminUsers() {
-        const users = this.getUsers();
-        const userArray = Object.values(users);
+    async loadAdminUsers() {
         const tbody = document.getElementById('usersTableBody');
-        
-        if (tbody) {
-            if (userArray.length === 0) {
+        if (!tbody) return;
+
+        try {
+            let users = [];
+            
+            if (this.useSupabase) {
+                // Get users from Supabase
+                users = await this.supabase.getAllUsers();
+            } else {
+                // Fallback to localStorage
+                const usersObj = this.getUsers();
+                users = Object.values(usersObj);
+            }
+
+            if (users.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="no-data">No users found</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = userArray.map(user => {
-                const subscriptionStatus = user.subscription?.trial?.active 
-                    ? `Trial (${this.checkTrialStatus(user)?.daysRemaining || 0}d left)`
-                    : user.subscription?.status === 'active' 
-                        ? 'Active' 
-                        : 'Inactive';
+            // Store users for filtering
+            this.adminUsersList = users;
+
+            tbody.innerHTML = users.map(user => {
+                let subscriptionStatus = 'Inactive';
+                let subscriptionPlan = 'None';
                 
-                const joinedDate = new Date(user.createdAt).toLocaleDateString();
+                if (this.useSupabase) {
+                    const sub = user.subscriptions?.[0];
+                    if (sub) {
+                        if (sub.status === 'trial' && sub.trial_end_date) {
+                            const daysLeft = Math.ceil((new Date(sub.trial_end_date) - new Date()) / (1000 * 60 * 60 * 24));
+                            subscriptionStatus = daysLeft > 0 ? `Trial (${daysLeft}d left)` : 'Trial Expired';
+                        } else {
+                            subscriptionStatus = sub.status === 'active' ? 'Active' : sub.status || 'Inactive';
+                        }
+                        subscriptionPlan = sub.plan || 'None';
+                    }
+                } else {
+                    subscriptionStatus = user.subscription?.trial?.active 
+                        ? `Trial (${this.checkTrialStatus(user)?.daysRemaining || 0}d left)`
+                        : user.subscription?.status === 'active' 
+                            ? 'Active' 
+                            : 'Inactive';
+                    subscriptionPlan = user.subscription?.plan || 'None';
+                }
+                
+                const joinedDate = new Date(user.created_at || user.createdAt).toLocaleDateString();
                 
                 return `
                     <tr>
                         <td>${this.escapeHtml(user.name)}</td>
                         <td>${this.escapeHtml(user.email)}</td>
-                        <td><span class="status-badge ${user.subscription?.status || 'inactive'}">${subscriptionStatus}</span></td>
-                        <td>${user.subscription?.plan || 'None'}</td>
+                        <td><span class="status-badge ${subscriptionStatus.toLowerCase().includes('trial') ? 'trial' : subscriptionStatus.toLowerCase().includes('active') ? 'active' : 'inactive'}">${subscriptionStatus}</span></td>
+                        <td>${subscriptionPlan}</td>
                         <td>${joinedDate}</td>
                         <td>
-                            <button class="admin-action-btn" onclick="app.viewUserDetails('${user.email}')">View</button>
-                            <button class="admin-action-btn danger" onclick="app.deleteUser('${user.email}')">Delete</button>
+                            <button class="admin-action-btn" onclick="app.viewUserDetails('${user.email}', '${user.id || ''}')">View</button>
+                            <button class="admin-action-btn danger" onclick="app.deleteUser('${user.email}', '${user.id || ''}')">Delete</button>
                         </td>
                     </tr>
                 `;
             }).join('');
+        } catch (error) {
+            console.error('Error loading admin users:', error);
+            if (tbody) {
+                tbody.innerHTML = '<tr><td colspan="6" class="no-data">Error loading users. Please try again.</td></tr>';
+            }
         }
     }
 
     filterUsers(searchTerm) {
-        const users = this.getUsers();
-        const userArray = Object.values(users);
         const tbody = document.getElementById('usersTableBody');
         const searchLower = searchTerm.toLowerCase();
 
@@ -742,9 +1228,10 @@ class MoodJournal {
             return;
         }
 
-        const filtered = userArray.filter(user => 
-            user.email.toLowerCase().includes(searchLower) || 
-            user.name.toLowerCase().includes(searchLower)
+        const users = this.adminUsersList || [];
+        const filtered = users.filter(user => 
+            (user.email || '').toLowerCase().includes(searchLower) || 
+            (user.name || '').toLowerCase().includes(searchLower)
         );
 
         if (tbody) {
@@ -754,24 +1241,41 @@ class MoodJournal {
             }
 
             tbody.innerHTML = filtered.map(user => {
-                const subscriptionStatus = user.subscription?.trial?.active 
-                    ? `Trial (${this.checkTrialStatus(user)?.daysRemaining || 0}d left)`
-                    : user.subscription?.status === 'active' 
-                        ? 'Active' 
-                        : 'Inactive';
+                let subscriptionStatus = 'Inactive';
+                let subscriptionPlan = 'None';
                 
-                const joinedDate = new Date(user.createdAt).toLocaleDateString();
+                if (this.useSupabase) {
+                    const sub = user.subscriptions?.[0];
+                    if (sub) {
+                        if (sub.status === 'trial' && sub.trial_end_date) {
+                            const daysLeft = Math.ceil((new Date(sub.trial_end_date) - new Date()) / (1000 * 60 * 60 * 24));
+                            subscriptionStatus = daysLeft > 0 ? `Trial (${daysLeft}d left)` : 'Trial Expired';
+                        } else {
+                            subscriptionStatus = sub.status === 'active' ? 'Active' : sub.status || 'Inactive';
+                        }
+                        subscriptionPlan = sub.plan || 'None';
+                    }
+                } else {
+                    subscriptionStatus = user.subscription?.trial?.active 
+                        ? `Trial (${this.checkTrialStatus(user)?.daysRemaining || 0}d left)`
+                        : user.subscription?.status === 'active' 
+                            ? 'Active' 
+                            : 'Inactive';
+                    subscriptionPlan = user.subscription?.plan || 'None';
+                }
+                
+                const joinedDate = new Date(user.created_at || user.createdAt).toLocaleDateString();
                 
                 return `
                     <tr>
                         <td>${this.escapeHtml(user.name)}</td>
                         <td>${this.escapeHtml(user.email)}</td>
-                        <td><span class="status-badge ${user.subscription?.status || 'inactive'}">${subscriptionStatus}</span></td>
-                        <td>${user.subscription?.plan || 'None'}</td>
+                        <td><span class="status-badge ${subscriptionStatus.toLowerCase().includes('trial') ? 'trial' : subscriptionStatus.toLowerCase().includes('active') ? 'active' : 'inactive'}">${subscriptionStatus}</span></td>
+                        <td>${subscriptionPlan}</td>
                         <td>${joinedDate}</td>
                         <td>
-                            <button class="admin-action-btn" onclick="app.viewUserDetails('${user.email}')">View</button>
-                            <button class="admin-action-btn danger" onclick="app.deleteUser('${user.email}')">Delete</button>
+                            <button class="admin-action-btn" onclick="app.viewUserDetails('${user.email}', '${user.id || ''}')">View</button>
+                            <button class="admin-action-btn danger" onclick="app.deleteUser('${user.email}', '${user.id || ''}')">Delete</button>
                         </td>
                     </tr>
                 `;
@@ -779,21 +1283,37 @@ class MoodJournal {
         }
     }
 
-    loadEmailLogs() {
-        const emailLogs = this.getEmailLogs();
+    async loadEmailLogs() {
         const container = document.getElementById('emailLogs');
-        
-        if (container) {
+        if (!container) return;
+
+        try {
+            let emailLogs = [];
+            
+            if (this.useSupabase) {
+                emailLogs = await this.supabase.getEmailLogs();
+                // Transform Supabase format to expected format
+                emailLogs = emailLogs.map(log => ({
+                    type: log.type,
+                    to: log.to_email,
+                    subject: log.subject,
+                    body: log.body || '',
+                    timestamp: log.sent_at
+                }));
+            } else {
+                emailLogs = this.getEmailLogs();
+            }
+
             if (emailLogs.length === 0) {
                 container.innerHTML = '<div class="no-data">No email logs found</div>';
                 return;
             }
 
             // Sort by timestamp, newest first
-            const sortedLogs = emailLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const sortedLogs = emailLogs.sort((a, b) => new Date(b.timestamp || b.sent_at) - new Date(a.timestamp || a.sent_at));
 
             container.innerHTML = sortedLogs.slice(0, 20).map(log => {
-                const date = new Date(log.timestamp).toLocaleString();
+                const date = new Date(log.timestamp || log.sent_at).toLocaleString();
                 return `
                     <div class="email-log-item">
                         <div class="email-log-header">
@@ -801,65 +1321,120 @@ class MoodJournal {
                             <span class="email-date">${date}</span>
                         </div>
                         <div class="email-log-details">
-                            <div><strong>To:</strong> ${this.escapeHtml(log.to)}</div>
+                            <div><strong>To:</strong> ${this.escapeHtml(log.to || log.to_email)}</div>
                             <div><strong>Subject:</strong> ${this.escapeHtml(log.subject)}</div>
-                            <div class="email-body-preview">${this.escapeHtml(log.body.substring(0, 100))}${log.body.length > 100 ? '...' : ''}</div>
+                            <div class="email-body-preview">${this.escapeHtml((log.body || '').substring(0, 100))}${(log.body || '').length > 100 ? '...' : ''}</div>
                         </div>
                     </div>
                 `;
             }).join('');
+        } catch (error) {
+            console.error('Error loading email logs:', error);
+            container.innerHTML = '<div class="no-data">Error loading email logs. Please try again.</div>';
         }
     }
 
-    viewUserDetails(email) {
-        const users = this.getUsers();
-        const user = users[email];
-        
-        if (!user) {
-            alert('User not found');
-            return;
-        }
+    async viewUserDetails(email, userId = null) {
+        try {
+            let user = null;
+            
+            if (this.useSupabase && userId) {
+                // Get user from Supabase
+                const users = await this.supabase.getAllUsers();
+                user = users.find(u => u.id === userId || u.email === email);
+            } else {
+                // Fallback to localStorage
+                const users = this.getUsers();
+                user = users[email];
+            }
+            
+            if (!user) {
+                alert('User not found');
+                return;
+            }
 
-        const details = `
+            let subscriptionInfo = 'None';
+            let subscriptionStatus = 'inactive';
+            let trialInfo = '';
+            let paymentMethod = 'None';
+
+            if (this.useSupabase) {
+                const sub = user.subscriptions?.[0];
+                if (sub) {
+                    subscriptionInfo = sub.plan || 'None';
+                    subscriptionStatus = sub.status || 'inactive';
+                    if (sub.trial_end_date) {
+                        const trialEnd = new Date(sub.trial_end_date);
+                        const isActive = trialEnd > new Date();
+                        trialInfo = `- Trial: ${isActive ? 'Active' : 'Expired'}\n- Trial Ends: ${trialEnd.toLocaleString()}`;
+                    }
+                }
+            } else {
+                subscriptionInfo = user.subscription?.plan || 'None';
+                subscriptionStatus = user.subscription?.status || 'inactive';
+                if (user.subscription?.trial?.active) {
+                    trialInfo = `- Trial: Active\n- Trial Ends: ${new Date(user.subscription.trial.endDate).toLocaleString()}`;
+                }
+                paymentMethod = user.subscription?.paymentMethod ? `****${user.subscription.paymentMethod.cardNumber}` : 'None';
+            }
+
+            const details = `
 User Details:
 - Name: ${user.name}
 - Email: ${user.email}
-- Joined: ${new Date(user.createdAt).toLocaleString()}
-- Subscription: ${user.subscription?.plan || 'None'}
-- Status: ${user.subscription?.status || 'inactive'}
-- Trial: ${user.subscription?.trial?.active ? 'Active' : 'Inactive'}
-${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription.trial.endDate).toLocaleString()}` : ''}
-- Payment Method: ${user.subscription?.paymentMethod ? `****${user.subscription.paymentMethod.cardNumber}` : 'None'}
-        `;
-        
-        alert(details);
+- Joined: ${new Date(user.created_at || user.createdAt).toLocaleString()}
+- Subscription Plan: ${subscriptionInfo}
+- Status: ${subscriptionStatus}
+${trialInfo}
+${!this.useSupabase ? `- Payment Method: ${paymentMethod}` : ''}
+            `;
+            
+            alert(details);
+        } catch (error) {
+            console.error('Error viewing user details:', error);
+            alert('Error loading user details. Please try again.');
+        }
     }
 
-    deleteUser(email) {
+    async deleteUser(email, userId = null) {
         if (email === 'branlan99@gmail.com') {
             alert('Cannot delete admin account');
             return;
         }
 
-        if (!confirm(`Are you sure you want to delete user ${email}? This action cannot be undone.`)) {
+        if (!confirm(`Are you sure you want to delete user ${email}? This action cannot be undone. This will delete all their data including entries and thoughts.`)) {
             return;
         }
 
-        const users = this.getUsers();
-        if (users[email]) {
-            delete users[email];
-            localStorage.setItem('users', JSON.stringify(users));
-            
-            // Also delete user entries
-            const user = users[email];
-            if (user) {
-                const userEntriesKey = `entries_${user.id}`;
-                localStorage.removeItem(userEntriesKey);
+        try {
+            if (this.useSupabase && userId) {
+                // Delete user from Supabase (cascading will delete related data)
+                // Note: This requires admin privileges or service role key
+                // For now, we'll show a message that deletion should be done from Supabase dashboard
+                // In production, you'd need a backend endpoint with service role key
+                alert('User deletion from Supabase requires admin privileges. Please delete the user from the Supabase dashboard. The cascading delete will automatically remove all related data.');
+                return;
+            } else {
+                // Fallback to localStorage
+                const users = this.getUsers();
+                if (users[email]) {
+                    const user = users[email];
+                    delete users[email];
+                    localStorage.setItem('users', JSON.stringify(users));
+                    
+                    if (user.id) {
+                        const userEntriesKey = `entries_${user.id}`;
+                        localStorage.removeItem(userEntriesKey);
+                    }
+                    
+                    await this.loadAdminUsers();
+                    await this.loadAdminStats();
+                    alert('User deleted successfully');
+                }
             }
-            
-            this.loadAdminUsers();
-            this.loadAdminStats();
-            alert('User deleted successfully');
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            alert('Error deleting user. Please try again.');
         }
     }
 
@@ -924,8 +1499,15 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
             // Entry page is default
         } else if (page === 'settings') {
             this.loadSettingsPage();
-        } else if (page === 'admin' && this.currentUser && this.currentUser.email === 'branlan99@gmail.com') {
-            this.loadAdminData();
+        } else if (page === 'admin') {
+            // Check if user is admin before loading
+            if (this.currentUser && this.currentUser.email === 'branlan99@gmail.com') {
+                this.loadAdminData();
+            } else {
+                // Redirect non-admin users
+                this.navigateToPage('entry');
+                alert('Access denied. Admin access required.');
+            }
         }
     }
 
@@ -1113,11 +1695,16 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
     }
 
     // Save Entry
-    saveEntry() {
+    async saveEntry() {
         console.log('saveEntry called', { moodsCount: this.selectedMoods.length });
         
         if (this.selectedMoods.length === 0) {
             alert('Please select at least one mood for today!');
+            return;
+        }
+
+        if (!this.currentUser) {
+            alert('Please log in to save entries');
             return;
         }
 
@@ -1135,8 +1722,28 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
             timestamp: new Date().toISOString()
         };
 
-        this.entries[todayKey] = entry;
-        this.saveUserEntries();
+        try {
+            if (this.useSupabase) {
+                // Save to Supabase
+                await this.supabase.saveEntry(this.currentUser.id, {
+                    date: todayKey,
+                    mood: entry.mood,
+                    moods: entry.moods,
+                    text: entry.text,
+                    aiResponse: entry.aiResponse || null
+                });
+                // Update local cache
+                this.entries[todayKey] = entry;
+            } else {
+                // Fallback to localStorage
+                this.entries[todayKey] = entry;
+                this.saveUserEntries();
+            }
+        } catch (error) {
+            console.error('Error saving entry:', error);
+            alert('Failed to save entry. Please try again.');
+            return;
+        }
         
         // Clear form
         document.getElementById('journalText').value = '';
