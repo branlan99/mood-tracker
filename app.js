@@ -634,22 +634,27 @@ class MoodJournal {
         emailLogs.push(emailLog);
         localStorage.setItem('emailLogs', JSON.stringify(emailLogs));
         
-                // Also log to Supabase if available
-        if (this.useSupabase) {
-            this.supabase.supabase
-                .from('email_logs')
-                .insert({
-                    to_email: to,
-                    subject: subject,
-                    body: body,
-                    type: type
-                })
-                .catch(err => {
+        // Also log to Supabase if available (fire and forget)
+        if (this.useSupabase && this.supabase && this.supabase.supabase) {
+            const supabaseClient = this.supabase.supabase;
+            // Use proper promise handling
+            (async () => {
+                try {
+                    await supabaseClient
+                        .from('email_logs')
+                        .insert({
+                            to_email: to,
+                            subject: subject,
+                            body: body,
+                            type: type
+                        });
+                } catch (err) {
                     // Only log if it's not a permission error (admin-only table)
-                    if (err.code !== '42501') {
+                    if (err && err.code !== '42501') {
                         console.error('Error logging email:', err);
                     }
-                });
+                }
+            })();
         }
     }
 
