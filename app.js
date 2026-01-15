@@ -62,8 +62,13 @@ class MoodJournal {
 
     // Authentication Functions
     async checkAuth() {
-        // Check for password reset token first
-        this.checkPasswordResetToken();
+        // Check for password reset token first (must be awaited)
+        const hasResetToken = await this.checkPasswordResetToken();
+        
+        // If we found a reset token and are processing it, don't continue with normal auth flow
+        if (hasResetToken) {
+            return;
+        }
         
         if (this.useSupabase) {
             // Check Supabase auth
@@ -72,11 +77,7 @@ class MoodJournal {
                 await this.loadUserFromSupabase();
                 this.showApp();
             } else {
-                // Only show auth if not on password reset page
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('type') !== 'recovery') {
-                    this.showAuth();
-                }
+                this.showAuth();
             }
         } else {
             // Fallback to localStorage
@@ -94,11 +95,7 @@ class MoodJournal {
                 this.loadUserData();
                 this.showApp();
             } else {
-                // Only show auth if not on password reset page
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('type') !== 'recovery') {
-                    this.showAuth();
-                }
+                this.showAuth();
             }
         }
     }
@@ -660,48 +657,60 @@ class MoodJournal {
 
     async checkPasswordResetToken() {
         // Check if there's a password reset token in the URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const accessToken = urlParams.get('access_token');
-        const type = urlParams.get('type');
+        // Supabase sends tokens in the hash (fragment) not query params
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const hashToken = hashParams.get('access_token');
-        const hashType = hashParams.get('type');
+        const accessToken = hashParams.get('access_token');
+        const type = hashParams.get('type');
+        const refreshToken = hashParams.get('refresh_token');
         
-        const resetToken = accessToken || hashToken;
-        const resetType = type || hashType;
+        // Also check query params for compatibility
+        const urlParams = new URLSearchParams(window.location.search);
+        const queryToken = urlParams.get('access_token');
+        const queryType = urlParams.get('type');
+        
+        const resetToken = accessToken || queryToken;
+        const resetType = type || queryType;
         
         if (resetType === 'recovery' && resetToken && this.useSupabase) {
             // This is a password reset link from Supabase
             try {
+                console.log('🔐 Processing password reset token...');
+                
                 // Set the session with the access token from the URL
                 const { data, error } = await this.supabase.supabase.auth.setSession({
                     access_token: resetToken,
-                    refresh_token: hashParams.get('refresh_token') || ''
+                    refresh_token: refreshToken || ''
                 });
                 
                 if (error) throw error;
                 
+                console.log('✅ Session set successfully, showing reset form');
+                
                 // Show the reset password form
-                if (document.getElementById('authPage')) {
-                    document.getElementById('authPage').style.display = 'flex';
-                    document.getElementById('appContainer').style.display = 'none';
-                    document.getElementById('loginForm')?.classList.remove('active');
-                    document.getElementById('forgotPasswordForm')?.classList.remove('active');
-                    const resetForm = document.getElementById('resetPasswordForm');
-                    if (resetForm) {
-                        resetForm.style.display = 'block';
-                    }
+                this.showAuth();
+                document.getElementById('loginForm')?.classList.remove('active');
+                document.getElementById('forgotPasswordForm')?.classList.remove('active');
+                document.getElementById('signupForm')?.classList.remove('active');
+                const resetForm = document.getElementById('resetPasswordForm');
+                if (resetForm) {
+                    resetForm.style.display = 'block';
+                    resetForm.classList.add('active');
                 }
                 
                 // Clean URL (remove tokens for security)
                 window.history.replaceState({}, document.title, window.location.pathname);
+                
+                return true; // Indicate that we found and processed a reset token
             } catch (err) {
-                console.error('Error setting session:', err);
+                console.error('❌ Error setting session:', err);
                 alert('Invalid or expired reset link. Please request a new password reset.');
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
+                return false;
             }
         }
+        
+        return false; // No reset token found
     }
 
     // User management (simulated - in production, use backend)
