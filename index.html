@@ -83,23 +83,6 @@
                 </div>
             </div>
 
-            <!-- Reset Password Form (shown after clicking email link) -->
-            <div class="auth-form" id="resetPasswordForm" style="display: none;">
-                <h2>Set New Password</h2>
-                <p class="auth-description">Enter your new password</p>
-                <form id="resetPasswordFormElement">
-                    <div class="form-group">
-                        <label for="newPassword">New Password</label>
-                        <input type="password" id="newPassword" required placeholder="••••••••" minlength="6">
-                    </div>
-                    <div class="form-group">
-                        <label for="confirmPassword">Confirm Password</label>
-                        <input type="password" id="confirmPassword" required placeholder="••••••••" minlength="6">
-                    </div>
-                    <button type="submit" class="auth-btn-primary">Reset Password</button>
-                </form>
-            </div>
-
             <!-- Signup Form -->
             <div class="auth-form" id="signupForm">
                 <h2>Create Account</h2>
@@ -123,7 +106,7 @@
                                 <h3>Premium Subscription</h3>
                                 <div class="price-info">
                                     <div class="trial-badge">🎁 7-Day Free Trial</div>
-                                    <div class="price">$5<span>/month</span></div>
+                                <div class="price"><span id="subscriptionPrice">$5</span><span>/month</span></div>
                                 </div>
                             </div>
                             <ul class="subscription-features">
@@ -139,7 +122,7 @@
                                     <input type="checkbox" id="enableSubscription" checked>
                                     <span class="toggle-slider"></span>
                                 </label>
-                                <span>Start 7-day free trial (then $5/month)</span>
+                                <span>Start 7-day free trial (then <span id="subscriptionPriceText">$5/month</span>)</span>
                             </div>
                             
                             <!-- Payment Method (shown when subscription enabled) -->
@@ -173,6 +156,34 @@
                 </form>
                 <div class="auth-footer">
                     <p>Already have an account? <a href="#" id="showLogin">Sign in</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Page (shown after clicking email link) -->
+    <div id="resetPage" class="auth-page" style="display: none;">
+        <div class="auth-container">
+            <div class="auth-header">
+                <h1>🔐 Reset Password</h1>
+                <p class="auth-subtitle">Enter a new password to access your account</p>
+            </div>
+            <div class="auth-form active" id="resetPasswordForm">
+                <h2>Set New Password</h2>
+                <p class="auth-description">Enter your new password</p>
+                <form id="resetPasswordFormElement">
+                    <div class="form-group">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" required placeholder="••••••••" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPassword">Confirm Password</label>
+                        <input type="password" id="confirmPassword" required placeholder="••••••••" minlength="6">
+                    </div>
+                    <button type="submit" class="auth-btn-primary">Reset Password</button>
+                </form>
+                <div class="auth-footer">
+                    <p>Remember your password? <a href="#" id="resetBackToLogin">Back to Login</a></p>
                 </div>
             </div>
         </div>
@@ -229,7 +240,7 @@
                             <span>☰</span>
                         </button>
                         <div>
-                            <h1>🌟 Mood Journal</h1>
+                            <h1>🌟 mood jounral</h1>
                             <p class="subtitle">Track your feelings and discover insights</p>
                         </div>
                     </div>
@@ -256,59 +267,59 @@
                 <div class="mood-selector">
                     <h3>How are you feeling today?</h3>
                     <div class="mood-grid">
-                        <button class="mood-btn" data-mood="excited" data-value="7">
+                        <button type="button" class="mood-btn" data-mood="excited" data-value="7">
                             <span class="emoji">😄</span>
                             <span class="label">Excited</span>
                         </button>
-                        <button class="mood-btn" data-mood="happy" data-value="6">
+                        <button type="button" class="mood-btn" data-mood="happy" data-value="6">
                             <span class="emoji">😊</span>
                             <span class="label">Happy</span>
                         </button>
-                        <button class="mood-btn" data-mood="grateful" data-value="5">
+                        <button type="button" class="mood-btn" data-mood="grateful" data-value="5">
                             <span class="emoji">🙏</span>
                             <span class="label">Grateful</span>
                         </button>
-                        <button class="mood-btn" data-mood="calm" data-value="4">
+                        <button type="button" class="mood-btn" data-mood="calm" data-value="4">
                             <span class="emoji">😌</span>
                             <span class="label">Calm</span>
                         </button>
-                        <button class="mood-btn" data-mood="content" data-value="3">
+                        <button type="button" class="mood-btn" data-mood="content" data-value="3">
                             <span class="emoji">🙂</span>
                             <span class="label">Content</span>
                         </button>
-                        <button class="mood-btn" data-mood="neutral" data-value="2">
+                        <button type="button" class="mood-btn" data-mood="neutral" data-value="2">
                             <span class="emoji">😐</span>
                             <span class="label">Neutral</span>
                         </button>
-                        <button class="mood-btn" data-mood="tired" data-value="1">
+                        <button type="button" class="mood-btn" data-mood="tired" data-value="1">
                             <span class="emoji">😴</span>
                             <span class="label">Tired</span>
                         </button>
-                        <button class="mood-btn" data-mood="stressed" data-value="0">
+                        <button type="button" class="mood-btn" data-mood="stressed" data-value="0">
                             <span class="emoji">😓</span>
                             <span class="label">Stressed</span>
                         </button>
-                        <button class="mood-btn" data-mood="frustrated" data-value="-1">
+                        <button type="button" class="mood-btn" data-mood="frustrated" data-value="-1">
                             <span class="emoji">😤</span>
                             <span class="label">Frustrated</span>
                         </button>
-                        <button class="mood-btn" data-mood="sad" data-value="-2">
+                        <button type="button" class="mood-btn" data-mood="sad" data-value="-2">
                             <span class="emoji">😢</span>
                             <span class="label">Sad</span>
                         </button>
-                        <button class="mood-btn" data-mood="unhappy" data-value="-3">
+                        <button type="button" class="mood-btn" data-mood="unhappy" data-value="-3">
                             <span class="emoji">😞</span>
                             <span class="label">Unhappy</span>
                         </button>
-                        <button class="mood-btn" data-mood="anxious" data-value="-4">
+                        <button type="button" class="mood-btn" data-mood="anxious" data-value="-4">
                             <span class="emoji">😰</span>
                             <span class="label">Anxious</span>
                         </button>
-                        <button class="mood-btn" data-mood="depressed" data-value="-5">
+                        <button type="button" class="mood-btn" data-mood="depressed" data-value="-5">
                             <span class="emoji">😔</span>
                             <span class="label">Depressed</span>
                         </button>
-                        <button class="mood-btn" data-mood="lost" data-value="-6">
+                        <button type="button" class="mood-btn" data-mood="lost" data-value="-6">
                             <span class="emoji">😕</span>
                             <span class="label">Lost</span>
                         </button>
@@ -698,7 +709,11 @@
                                 <h5>Subscription Price</h5>
                                 <p>Monthly subscription fee</p>
                             </div>
-                            <div class="setting-value">$5.00/month</div>
+                            <div class="setting-value">
+                                <input type="number" id="adminSubscriptionPrice" min="1" step="0.01" style="width: 90px;" />
+                                <span id="adminSubscriptionPriceValue">/month</span>
+                                <button class="admin-action-btn" id="saveSubscriptionPrice">Save</button>
+                            </div>
                         </div>
                         <div class="setting-item">
                             <div class="setting-info">

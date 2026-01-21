@@ -50,6 +50,39 @@ class SupabaseService {
         await this.supabase.auth.signOut();
     }
 
+    async getAppSetting(key) {
+        if (!this.isAvailable) {
+            throw new Error('Supabase not configured');
+        }
+
+        const { data, error } = await this.supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', key)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return null;
+            }
+            throw error;
+        }
+
+        return data?.value ?? null;
+    }
+
+    async setAppSetting(key, value) {
+        if (!this.isAvailable) {
+            throw new Error('Supabase not configured');
+        }
+
+        const { error } = await this.supabase
+            .from('app_settings')
+            .upsert({ key, value }, { onConflict: 'key' });
+
+        if (error) throw error;
+    }
+
     async sendPasswordResetEmail(email) {
         if (!this.isAvailable) {
             throw new Error('Supabase not configured');

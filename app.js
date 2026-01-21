@@ -57,7 +57,56 @@ class MoodJournal {
             });
         }
         
+        this.updateSubscriptionPriceDisplay();
+        this.initSubscriptionPrice();
         this.checkAuth();
+    }
+
+    async initSubscriptionPrice() {
+        if (this.useSupabase) {
+            try {
+                const settingValue = await this.supabase.getAppSetting('subscription_price');
+                const parsed = settingValue !== null ? parseFloat(settingValue) : null;
+                if (Number.isFinite(parsed) && parsed > 0) {
+                    localStorage.setItem('subscriptionPrice', parsed.toFixed(2));
+                }
+            } catch (error) {
+                console.warn('Failed to load subscription price from Supabase:', error);
+            }
+        }
+
+        this.updateSubscriptionPriceDisplay();
+    }
+
+    getSubscriptionPrice() {
+        const stored = localStorage.getItem('subscriptionPrice');
+        const price = stored ? parseFloat(stored) : 5.00;
+        return Number.isFinite(price) && price > 0 ? price : 5.00;
+    }
+
+    formatSubscriptionPrice(price) {
+        return `$${price.toFixed(2)}`;
+    }
+
+    getSubscriptionPriceText() {
+        return `${this.formatSubscriptionPrice(this.getSubscriptionPrice())}/month`;
+    }
+
+    updateSubscriptionPriceDisplay() {
+        const price = this.getSubscriptionPrice();
+        const priceText = this.formatSubscriptionPrice(price);
+
+        const priceEl = document.getElementById('subscriptionPrice');
+        if (priceEl) priceEl.textContent = priceText;
+
+        const priceTextEl = document.getElementById('subscriptionPriceText');
+        if (priceTextEl) priceTextEl.textContent = `${priceText}/month`;
+
+        const adminPriceInput = document.getElementById('adminSubscriptionPrice');
+        if (adminPriceInput) adminPriceInput.value = price.toFixed(2);
+
+        const adminPriceValue = document.getElementById('adminSubscriptionPriceValue');
+        if (adminPriceValue) adminPriceValue.textContent = `${priceText}/month`;
     }
 
     // Authentication Functions
@@ -89,7 +138,7 @@ class MoodJournal {
                     const trialStatus = this.checkTrialStatus(this.currentUser);
                     if (trialStatus?.expired) {
                         // Trial expired - in production, charge the user
-                        alert('Your 7-day free trial has ended. Your subscription is now active and you will be charged $5/month.');
+                        alert(`Your 7-day free trial has ended. Your subscription is now active and you will be charged ${this.getSubscriptionPriceText()}.`);
                     }
                 }
                 this.loadUserData();
@@ -133,7 +182,7 @@ class MoodJournal {
                 if (this.currentUser.subscription?.trial?.active) {
                     const trialStatus = this.checkTrialStatus(this.currentUser);
                     if (trialStatus?.expired) {
-                        alert('Your 7-day free trial has ended. Your subscription is now active and you will be charged $5/month.');
+                        alert(`Your 7-day free trial has ended. Your subscription is now active and you will be charged ${this.getSubscriptionPriceText()}.`);
                     }
                 }
             }
@@ -147,12 +196,16 @@ class MoodJournal {
 
     showAuth() {
         document.getElementById('authPage').style.display = 'flex';
+        const resetPage = document.getElementById('resetPage');
+        if (resetPage) resetPage.style.display = 'none';
         document.getElementById('appContainer').style.display = 'none';
         this.setupAuthListeners();
     }
 
     showApp() {
         document.getElementById('authPage').style.display = 'none';
+        const resetPage = document.getElementById('resetPage');
+        if (resetPage) resetPage.style.display = 'none';
         document.getElementById('appContainer').style.display = 'block';
         this.updateUserDisplay();
         
@@ -180,7 +233,11 @@ class MoodJournal {
             document.getElementById('signupForm').classList.remove('active');
             document.getElementById('loginForm').classList.add('active');
             document.getElementById('forgotPasswordForm').classList.remove('active');
-            document.getElementById('resetPasswordForm').style.display = 'none';
+            const resetPage = document.getElementById('resetPage');
+            if (resetPage) {
+                resetPage.style.display = 'none';
+                document.getElementById('authPage').style.display = 'flex';
+            }
         });
 
         // Forgot password link
@@ -196,6 +253,18 @@ class MoodJournal {
             document.getElementById('forgotPasswordForm').classList.remove('active');
             document.getElementById('loginForm').classList.add('active');
         });
+
+        // Back to login from reset page
+        const resetBackToLogin = document.getElementById('resetBackToLogin');
+        if (resetBackToLogin) {
+            resetBackToLogin.addEventListener('click', (e) => {
+                e.preventDefault();
+                const resetPage = document.getElementById('resetPage');
+                if (resetPage) resetPage.style.display = 'none';
+                document.getElementById('authPage').style.display = 'flex';
+                document.getElementById('loginForm').classList.add('active');
+            });
+        }
 
         // Forgot password form
         const forgotPasswordForm = document.getElementById('forgotPasswordFormElement');
@@ -378,11 +447,12 @@ class MoodJournal {
                         const now = new Date();
                         const trialEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
                         const nextBillingDate = trialEndDate;
+                        const price = this.getSubscriptionPrice();
                         
                         await this.supabase.createSubscription(this.currentUser.id, {
                             status: 'trial',
                             plan: 'premium',
-                            price: 5.00,
+                            price,
                             currency: 'USD',
                             trialStartDate: now.toISOString(),
                             trialEndDate: trialEndDate.toISOString(),
@@ -686,11 +756,17 @@ class MoodJournal {
                 
                 console.log('✅ Session set successfully, showing reset form');
                 
-                // Show the reset password form
-                this.showAuth();
-                document.getElementById('loginForm')?.classList.remove('active');
-                document.getElementById('forgotPasswordForm')?.classList.remove('active');
-                document.getElementById('signupForm')?.classList.remove('active');
+                // Show the reset password page
+                const authPage = document.getElementById('authPage');
+                const resetPage = document.getElementById('resetPage');
+                const appContainer = document.getElementById('appContainer');
+                if (authPage) authPage.style.display = 'none';
+                if (appContainer) appContainer.style.display = 'none';
+                if (resetPage) resetPage.style.display = 'flex';
+
+                // Ensure listeners are attached
+                this.setupAuthListeners();
+
                 const resetForm = document.getElementById('resetPasswordForm');
                 if (resetForm) {
                     resetForm.style.display = 'block';
@@ -749,6 +825,7 @@ class MoodJournal {
         const trialEndDate = hasSubscription ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) : null; // 7 days from now
         const nextBillingDate = hasSubscription ? trialEndDate : null;
 
+        const price = this.getSubscriptionPrice();
         const user = {
             id: Date.now().toString(),
             name,
@@ -757,7 +834,7 @@ class MoodJournal {
             subscription: {
                 active: hasSubscription,
                 plan: 'premium',
-                price: 5,
+                price,
                 currency: 'USD',
                 trial: hasSubscription ? {
                     active: true,
@@ -1060,6 +1137,8 @@ class MoodJournal {
         const refreshUsersBtn = document.getElementById('refreshUsers');
         const refreshEmailsBtn = document.getElementById('refreshEmails');
         const userSearchInput = document.getElementById('userSearch');
+        const saveSubscriptionPriceBtn = document.getElementById('saveSubscriptionPrice');
+        const adminSubscriptionPriceInput = document.getElementById('adminSubscriptionPrice');
 
         if (refreshUsersBtn) {
             refreshUsersBtn.addEventListener('click', () => {
@@ -1079,14 +1158,39 @@ class MoodJournal {
             });
         }
 
+        if (saveSubscriptionPriceBtn && adminSubscriptionPriceInput) {
+            saveSubscriptionPriceBtn.addEventListener('click', async () => {
+                const rawValue = parseFloat(adminSubscriptionPriceInput.value);
+                if (!Number.isFinite(rawValue) || rawValue <= 0) {
+                    alert('Please enter a valid monthly price.');
+                    return;
+                }
+
+                localStorage.setItem('subscriptionPrice', rawValue.toFixed(2));
+
+                if (this.useSupabase) {
+                    try {
+                        await this.supabase.setAppSetting('subscription_price', rawValue.toFixed(2));
+                    } catch (error) {
+                        console.warn('Failed to save price to Supabase:', error);
+                        alert('Saved locally, but failed to save to Supabase. Check console for details.');
+                    }
+                }
+
+                this.updateSubscriptionPriceDisplay();
+                alert(`Subscription price updated to ${this.getSubscriptionPriceText()}.`);
+            });
+        }
+
         // Load admin data when admin page is shown
         const adminNavBtn = document.getElementById('adminNavBtn');
         if (adminNavBtn) {
             // Remove existing listener to prevent duplicates
             const newAdminNavBtn = adminNavBtn.cloneNode(true);
             adminNavBtn.parentNode.replaceChild(newAdminNavBtn, adminNavBtn);
-            newAdminNavBtn.addEventListener('click', () => {
-                this.loadAdminData();
+            newAdminNavBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.navigateToPage('admin');
             });
         }
 
@@ -1562,11 +1666,13 @@ ${!this.useSupabase ? `- Payment Method: ${paymentMethod}` : ''}
 
     // Event Listeners
     setupEventListeners() {
-        // Mood selection
-        document.querySelectorAll('.mood-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.selectMood(e.currentTarget.dataset.mood, e.currentTarget.dataset.value, e.currentTarget);
-            });
+        // Mood selection (event delegation to avoid missing bindings)
+        document.addEventListener('click', (e) => {
+            const moodButton = e.target.closest('.mood-btn');
+            if (moodButton) {
+                e.preventDefault();
+                this.selectMood(moodButton.dataset.mood, moodButton.dataset.value, moodButton);
+            }
         });
 
         // Save entry
@@ -3874,7 +3980,7 @@ Write in a warm, curious, and supportive tone. Be specific and reference their a
     }
 
     handleReactivateSubscription() {
-        if (!confirm('Reactivate your subscription? You will be charged $5/month starting immediately.')) {
+        if (!confirm(`Reactivate your subscription? You will be charged ${this.getSubscriptionPriceText()} starting immediately.`)) {
             return;
         }
         
