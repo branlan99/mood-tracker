@@ -382,6 +382,12 @@ class MoodJournal {
         this.entries = stored ? JSON.parse(stored) : {};
     }
 
+    saveEntries() {
+        if (!this.currentUser) return;
+        const userEntriesKey = `entries_${this.currentUser.id}`;
+        localStorage.setItem(userEntriesKey, JSON.stringify(this.entries));
+    }
+
     updateUserDisplay() {
         if (!this.currentUser) return;
         
