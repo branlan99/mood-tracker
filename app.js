@@ -39,6 +39,10 @@ class MoodJournal {
             }
         }
         
+        this._authBound = false;
+        this._eventsBound = false;
+        this._routingBound = false;
+        this._adminBound = false;
         this.checkAuth();
     }
 
@@ -76,6 +80,9 @@ class MoodJournal {
     }
 
     setupAuthListeners() {
+        if (this._authBound) return;
+        this._authBound = true;
+
         // Show signup/login forms
         document.getElementById('showSignup').addEventListener('click', (e) => {
             e.preventDefault();
@@ -469,13 +476,25 @@ class MoodJournal {
         this.checkApiKey();
         this.updateSaveButton();
         
-        // Initialize admin portal if admin
-        if (this.currentUser && this.currentUser.email === 'branlan99@gmail.com') {
+        const adminNavBtn = document.getElementById('adminNavBtn');
+        const isAdmin = this.currentUser && this.currentUser.email === 'branlan99@gmail.com';
+        if (adminNavBtn) {
+            adminNavBtn.hidden = !isAdmin;
+        }
+        if (isAdmin) {
             this.setupAdminPortal();
         }
     }
 
     setupAdminPortal() {
+        if (this._adminBound) {
+            if (window.location.hash === '#admin') {
+                this.loadAdminData();
+            }
+            return;
+        }
+        this._adminBound = true;
+
         // Setup admin event listeners
         const refreshUsersBtn = document.getElementById('refreshUsers');
         const refreshEmailsBtn = document.getElementById('refreshEmails');
@@ -499,18 +518,6 @@ class MoodJournal {
             });
         }
 
-        // Load admin data when admin page is shown
-        const adminNavBtn = document.getElementById('adminNavBtn');
-        if (adminNavBtn) {
-            // Remove existing listener to prevent duplicates
-            const newAdminNavBtn = adminNavBtn.cloneNode(true);
-            adminNavBtn.parentNode.replaceChild(newAdminNavBtn, adminNavBtn);
-            newAdminNavBtn.addEventListener('click', () => {
-                this.loadAdminData();
-            });
-        }
-
-        // Load admin data on page load if on admin page
         if (window.location.hash === '#admin') {
             this.loadAdminData();
         }
@@ -730,6 +737,9 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
 
     // Routing System
     setupRouting() {
+        if (this._routingBound) return;
+        this._routingBound = true;
+
         // Handle navigation clicks
         document.querySelectorAll('.nav-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -776,6 +786,8 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
             }
         });
 
+        window.scrollTo(0, 0);
+
         // Refresh page-specific content if needed
         if (page === 'calendar') {
             // Calendar is already rendered, just ensure it's visible
@@ -807,6 +819,9 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
 
     // Event Listeners
     setupEventListeners() {
+        if (this._eventsBound) return;
+        this._eventsBound = true;
+
         // Mood selection
         document.querySelectorAll('.mood-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -1132,9 +1147,8 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
         const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         dayLabels.forEach(label => {
             const dayLabel = document.createElement('div');
-            dayLabel.className = 'calendar-day-label';
+            dayLabel.className = 'calendar-weekday';
             dayLabel.textContent = label;
-            dayLabel.style.gridColumn = 'span 1';
             calendarGrid.appendChild(dayLabel);
         });
         
@@ -1789,18 +1803,7 @@ Write as a warm, empathetic therapist who understands their experience. Provide 
     showSuccessMessage(message) {
         // Create a temporary success message
         const messageEl = document.createElement('div');
-        messageEl.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #10b981;
-            color: white;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 2000;
-            font-weight: 500;
-        `;
+        messageEl.className = 'toast-message';
         messageEl.textContent = message;
         document.body.appendChild(messageEl);
 

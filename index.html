@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Track your feelings day to day and get AI-powered therapeutic guidance. Your personal mood journal with intelligent insights.">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#F3EDE4">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Mood Journal">
     
     <title>Mood Journal - Track Your Feelings</title>
@@ -23,16 +23,24 @@
     <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="icons/icon-96x96.png">
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Login/Signup Page -->
     <div id="authPage" class="auth-page">
         <div class="auth-container">
             <div class="auth-header">
-                <h1>🌟 Mood Journal</h1>
-                <p class="auth-subtitle">Track your feelings and discover insights</p>
+                <div class="logo-mark" aria-hidden="true">
+                    <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="24" cy="24" r="22" fill="#C45C26"/>
+                        <path d="M24 12c.4 6.2 5.8 11.2 12 11.2-6.2.4-11.2 5.8-11.2 12-.4-6.2-5.8-11.2-12-11.2 6.2-.4 11.2-5.8 11.2-12z" fill="#F6F0E8"/>
+                    </svg>
+                </div>
+                <h1>Mood Journal</h1>
+                <p class="auth-subtitle">A quieter place to notice how you feel</p>
             </div>
             
             <!-- Login Form -->
@@ -118,12 +126,12 @@
                                 </div>
                             </div>
                             <ul class="subscription-features">
-                                <li>✅ Unlimited journal entries</li>
-                                <li>✅ AI therapeutic guidance</li>
-                                <li>✅ Voice chat therapy</li>
-                                <li>✅ Weekly & monthly reviews</li>
-                                <li>✅ Thought journal insights</li>
-                                <li>✅ Cloud backup</li>
+                                <li>Unlimited journal entries</li>
+                                <li>AI therapeutic guidance</li>
+                                <li>Voice chat therapy</li>
+                                <li>Weekly &amp; monthly reviews</li>
+                                <li>Thought journal insights</li>
+                                <li>Cloud backup</li>
                             </ul>
                             <div class="subscription-toggle">
                                 <label class="toggle-switch">
@@ -170,30 +178,57 @@
     </div>
 
     <!-- Main App (hidden until logged in) -->
-    <div id="appContainer" class="container" style="display: none;">
+    <div id="appContainer" class="container app-shell" style="display: none;">
         <header>
             <div class="header-content">
-                <div>
-                    <h1>🌟 Mood Journal</h1>
-                    <p class="subtitle">Track your feelings and discover insights</p>
+                <div class="header-brand">
+                    <div class="logo-mark" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="24" cy="24" r="22" fill="#C45C26"/>
+                            <path d="M24 12c.4 6.2 5.8 11.2 12 11.2-6.2.4-11.2 5.8-11.2 12-.4-6.2-5.8-11.2-12-11.2 6.2-.4 11.2-5.8 11.2-12z" fill="#F6F0E8"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h1>Mood Journal</h1>
+                        <p class="subtitle">Track your feelings and discover insights</p>
+                    </div>
                 </div>
                 <div class="user-menu">
                     <div class="user-info" id="userInfo">
                         <span id="userName"></span>
                         <span class="subscription-badge" id="subscriptionBadge">Premium</span>
                     </div>
-                    <button class="logout-btn" id="logoutBtn">Logout</button>
+                    <button class="logout-btn" id="logoutBtn" type="button">Log out</button>
                 </div>
             </div>
         </header>
 
         <!-- Navigation -->
-        <nav class="main-nav">
-            <button class="nav-btn active" data-page="entry">📝 Journal</button>
-            <button class="nav-btn" data-page="thoughts">💭 Thoughts</button>
-            <button class="nav-btn" data-page="calendar">📅 Calendar</button>
-            <button class="nav-btn" data-page="reviews">📊 Reviews</button>
-            <button class="nav-btn" data-page="voice">🎤 Voice Chat</button>
+        <nav class="main-nav" aria-label="Main">
+            <button class="nav-btn active" data-page="entry" type="button">
+                <span class="nav-icon" aria-hidden="true">✎</span>
+                <span class="nav-label">Journal</span>
+            </button>
+            <button class="nav-btn" data-page="thoughts" type="button">
+                <span class="nav-icon" aria-hidden="true">💭</span>
+                <span class="nav-label">Thoughts</span>
+            </button>
+            <button class="nav-btn" data-page="calendar" type="button">
+                <span class="nav-icon" aria-hidden="true">📅</span>
+                <span class="nav-label">Calendar</span>
+            </button>
+            <button class="nav-btn" data-page="reviews" type="button">
+                <span class="nav-icon" aria-hidden="true">📊</span>
+                <span class="nav-label">Reviews</span>
+            </button>
+            <button class="nav-btn" data-page="voice" type="button">
+                <span class="nav-icon" aria-hidden="true">🎤</span>
+                <span class="nav-label">Voice</span>
+            </button>
+            <button class="nav-btn admin-nav-btn" data-page="admin" id="adminNavBtn" type="button" hidden>
+                <span class="nav-icon" aria-hidden="true">⚙</span>
+                <span class="nav-label">Admin</span>
+            </button>
         </nav>
 
         <main>
