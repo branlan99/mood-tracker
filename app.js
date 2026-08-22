@@ -1037,14 +1037,7 @@ ${user.subscription?.trial?.active ? `- Trial Ends: ${new Date(user.subscription
         const hasMoods = this.selectedMoods.length > 0;
         
         saveBtn.disabled = !hasMoods;
-        
-        if (hasMoods && hasText) {
-            saveBtn.textContent = `Save Entry (${this.selectedMoods.length} mood${this.selectedMoods.length > 1 ? 's' : ''})`;
-        } else if (hasMoods) {
-            saveBtn.textContent = `Save Entry (${this.selectedMoods.length} mood${this.selectedMoods.length > 1 ? 's' : ''}, optional text)`;
-        } else {
-            saveBtn.textContent = 'Select at least one mood to save';
-        }
+        saveBtn.textContent = hasMoods ? 'Save Entry' : 'Select a mood to save';
     }
 
     // Render Entries
