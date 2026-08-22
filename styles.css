@@ -535,6 +535,11 @@ header h1 {
     justify-content: center;
 }
 
+.nav-btn[hidden],
+[hidden] {
+    display: none !important;
+}
+
 .nav-btn {
     display: inline-flex;
     align-items: center;
